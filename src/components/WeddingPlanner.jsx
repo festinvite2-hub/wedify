@@ -433,12 +433,12 @@ function Modal({open,onClose,title,children}){
     return()=>el.removeEventListener('touchmove',stop);
   },[open]);
   if(!open)return null;
-  return(<div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end",touchAction:"none"}}>
+  return(<div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,height:"100dvh",display:"flex",flexDirection:"column",justifyContent:"flex-end",overscrollBehavior:"contain"}}>
     <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
-    <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"88vh",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
+    <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"calc(100dvh - 8px)",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
       <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
       {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,paddingBottom:10,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
-      <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:10}}>{children}</div>
+      <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:12}}>{children}</div>
     </div>
   </div>);
 }
@@ -825,17 +825,17 @@ function Home() {
   const costPerGuest = conf > 0 ? Math.round(tP / conf) : 0;
 
   return (
-    <div className="fu" style={{ padding: "0 14px 20px" }}>
+    <div className="fu" style={{ padding: "4px 14px 24px" }}>
       {/* Hero */}
-      <div style={{ background: "linear-gradient(150deg,#1A1A1A,#28221C,#1A1A1A)", borderRadius: "var(--r)", padding: "22px 18px", marginBottom: 12, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, background: "radial-gradient(circle,rgba(184,149,106,.12),transparent 70%)", borderRadius: "50%" }} />
-        <button onClick={() => setShowSettings(true)} style={{ position: "absolute", top: 12, right: 12, padding: 5, color: "rgba(255,255,255,.3)", zIndex: 2 }}>{ic.edit}</button>
+      <div style={{ background: "linear-gradient(145deg,var(--cd),var(--cr))", borderRadius: "var(--r)", padding: "18px 16px", marginBottom: 12, position: "relative", overflow: "hidden", border: "1px solid var(--bd)", boxShadow: "var(--sh)" }}>
+        <div style={{ position: "absolute", top: -45, right: -35, width: 150, height: 150, background: "radial-gradient(circle,rgba(184,149,106,.2),transparent 70%)", borderRadius: "50%" }} />
+        <button onClick={() => setShowSettings(true)} style={{ position: "absolute", top: 10, right: 10, padding: 5, color: "var(--mt)", zIndex: 2 }}>{ic.edit}</button>
         <div style={{ position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}><span style={{ color: "var(--g)" }}>{ic.heart}</span><span style={{ fontSize: 9, color: "var(--gl)", textTransform: "uppercase", letterSpacing: ".15em", fontWeight: 700 }}>Countdown</span></div>
-          <div style={{ fontFamily: "var(--fd)", fontSize: 48, fontWeight: 400, color: "var(--gl)", lineHeight: 1 }}>{days}</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,.35)", marginBottom: 10 }}>zile rămase</div>
-          <div style={{ fontSize: 15, color: "#fff", fontWeight: 600 }}>{s.wedding.couple}</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,.35)", marginTop: 1 }}>{fmtD(s.wedding.date)} · {s.wedding.venue}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}><span style={{ color: "var(--g)" }}>{ic.heart}</span><span style={{ fontSize: 9, color: "var(--gd)", textTransform: "uppercase", letterSpacing: ".15em", fontWeight: 700 }}>Countdown</span></div>
+          <div style={{ fontFamily: "var(--fd)", fontSize: 44, fontWeight: 500, color: "var(--gd)", lineHeight: 1 }}>{days}</div>
+          <div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>zile rămase</div>
+          <div style={{ fontSize: 15, color: "var(--ink)", fontWeight: 600 }}>{s.wedding.couple}</div>
+          <div style={{ fontSize: 11, color: "var(--gr)", marginTop: 2 }}>{fmtD(s.wedding.date)} · {s.wedding.venue}</div>
         </div>
       </div>
 
