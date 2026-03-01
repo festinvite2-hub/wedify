@@ -438,14 +438,18 @@ function Modal({open,onClose,title,children}){
       if(rootEl&&prevRootOverflow!==undefined)rootEl.style.overflow=prevRootOverflow;
     };
   },[open]);
-    <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
-    <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"calc(100dvh - 8px)",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
-      <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
-      {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,paddingBottom:10,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
-      <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:12}}>{children}</div>
-    </div>
-  </div>;
-  return createPortal(modal,document.body);
+  if(!open||typeof document==="undefined")return null;
+  return createPortal(
+    <div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,height:"100dvh",display:"flex",flexDirection:"column",justifyContent:"flex-end",overscrollBehavior:"contain"}}>
+      <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
+      <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"calc(100dvh - 8px)",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
+        <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
+        {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,paddingBottom:10,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
+        <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:12}}>{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
 }
 function Btn({children,v="primary",onClick,style,disabled,full}){
   const m={primary:{background:"linear-gradient(135deg,var(--g),var(--gd))",color:"#fff",fontWeight:600,boxShadow:"0 3px 12px rgba(184,149,106,.25)"},secondary:{background:"var(--cr)",color:"var(--ink)",border:"1px solid var(--bd)"},danger:{background:"rgba(184,92,92,.08)",color:"var(--er)"},ghost:{background:"transparent",color:"var(--gd)"}};
