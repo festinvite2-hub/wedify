@@ -35,7 +35,8 @@ const CSS = `
 --cd:#22201C;--bg:#1A1816;--bd:#3A3530;--sh:0 2px 14px rgba(0,0,0,.2);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body,#root{height:100%;width:100%;font-family:var(--f);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;overflow:hidden;-webkit-font-smoothing:antialiased}
+html,body,#root{height:100%;width:100%;font-family:var(--f);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+#root{overflow:hidden}
 input,select,textarea,button{font-family:var(--f);font-size:15px;border:none;outline:none;background:none;color:var(--ink)}
 button{cursor:pointer}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--gl);border-radius:3px}
@@ -289,7 +290,6 @@ async function saveTheme(t) {
 
 // ─── Confirm Dialog ──────────────────────────────────────────
 function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
-  useEffect(()=>{if(open){document.body.style.overflow="hidden"}return()=>{if(open)document.body.style.overflow=""}},[open]);
   if (!open) return null;
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -424,17 +424,21 @@ function openPDF(html) {
 // ─── Shared UI ───────────────────────────────────────────────
 function Card({children,style,onClick}){return <div onClick={onClick} style={{background:"var(--cd)",color:"var(--ink)",borderRadius:"var(--r)",border:"1px solid var(--bd)",boxShadow:"var(--sh)",padding:14,...style}}>{children}</div>}
 function Modal({open,onClose,title,children}){
+  const overlayRef=useRef(null);
   useEffect(()=>{
-    if(open){document.body.style.overflow="hidden";document.body.style.position="fixed";document.body.style.width="100%";document.body.style.top=`-${window.scrollY}px`}
-    return()=>{const sy=document.body.style.top;document.body.style.overflow="";document.body.style.position="";document.body.style.width="";document.body.style.top="";if(open)window.scrollTo(0,parseInt(sy||"0")*-1)}
+    if(!open)return;
+    const el=overlayRef.current;if(!el)return;
+    const stop=e=>{const sc=el.querySelector('[data-ms]');if(sc&&sc.contains(e.target))return;e.preventDefault()};
+    el.addEventListener('touchmove',stop,{passive:false});
+    return()=>el.removeEventListener('touchmove',stop);
   },[open]);
   if(!open)return null;
-  return(<div style={{position:"fixed",inset:0,zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+  return(<div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end",touchAction:"none"}}>
     <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
-    <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"18px 16px calc(24px + env(safe-area-inset-bottom,0px))",maxHeight:"85vh",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
-      <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 12px",flexShrink:0}}/>
-      {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,paddingBottom:12,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
-      <div style={{flex:1,overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",paddingBottom:8}}>{children}</div>
+    <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"88vh",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
+      <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
+      {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,paddingBottom:10,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
+      <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:10}}>{children}</div>
     </div>
   </div>);
 }
@@ -1070,29 +1074,16 @@ function GuestFormInner({ guest, onClose }) {
   const [f, setF] = useState(guest ? { ...guest, tags: guest.tags || [], count: guest.count || 1 } : { name: "", group: groups[0], rsvp: "pending", dietary: "", notes: "", tags: [], count: 1 });
   const u = k => v => setF(x => ({ ...x, [k]: v }));
   const toggleTag = t => setF(x => ({ ...x, tags: x.tags.includes(t) ? x.tags.filter(v => v !== t) : [...x.tags, t] }));
-  const presets = [{l:"Single",v:1,ic:"👤"},{l:"Cuplu",v:2,ic:"👫"},{l:"Familie (3)",v:3,ic:"👨‍👩‍👧"},{l:"Familie (4)",v:4,ic:"👨‍👩‍👧‍👦"}];
   return <>
-    <Fld label="Nume invitat / familie" value={f.name} onChange={u("name")} placeholder="Maria & Ion Popescu" />
-    <div style={{marginBottom:12}}>
-      <label style={{display:"block",fontSize:10,fontWeight:700,color:"var(--mt)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5}}>Număr persoane</label>
-      <div style={{display:"flex",gap:6,marginBottom:6}}>
-        {presets.map(p=>(
-          <button key={p.v} onClick={()=>u("count")(p.v)} style={{flex:1,padding:"8px 4px",borderRadius:10,fontSize:11,fontWeight:600,textAlign:"center",background:f.count===p.v?"var(--gd)":"var(--cr)",color:f.count===p.v?"#fff":"var(--gr)",border:`1.5px solid ${f.count===p.v?"var(--gd)":"var(--bd)"}`,transition:"all .15s"}}>
-            <div style={{fontSize:16,marginBottom:2}}>{p.ic}</div>{p.l}
-          </button>
-        ))}
+    <Fld label="Nume" value={f.name} onChange={u("name")} />
+    <div style={{display:"flex",gap:8,marginBottom:12}}>
+      <div style={{flex:1}}>
+        <Fld label="Grup" value={f.group} onChange={u("group")} options={groups} />
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:8}}>
-        <span style={{fontSize:11,color:"var(--mt)"}}>Sau personalizat:</span>
-        <div style={{display:"flex",alignItems:"center",gap:4}}>
-          <button onClick={()=>u("count")(Math.max(1,f.count-1))} style={{width:28,height:28,borderRadius:8,background:"var(--cr)",border:"1px solid var(--bd)",fontSize:14,fontWeight:700,color:"var(--gd)",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-          <span style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:600,minWidth:24,textAlign:"center"}}>{f.count}</span>
-          <button onClick={()=>u("count")(Math.min(12,f.count+1))} style={{width:28,height:28,borderRadius:8,background:"var(--cr)",border:"1px solid var(--bd)",fontSize:14,fontWeight:700,color:"var(--gd)",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-          <span style={{fontSize:11,color:"var(--mt)",marginLeft:4}}>{f.count===1?"persoană":"persoane"}</span>
-        </div>
+      <div style={{width:100}}>
+        <Fld label="Persoane" value={f.count} onChange={v=>u("count")(Number(v)||1)} options={[{value:1,label:"👤 1"},{value:2,label:"👫 2"},{value:3,label:"👨‍👩‍👧 3"},{value:4,label:"👨‍👩‍👧‍👦 4"},{value:5,label:"5"},{value:6,label:"6"}]} />
       </div>
     </div>
-    <Fld label="Grup" value={f.group} onChange={u("group")} options={groups} />
     <Fld label="RSVP" value={f.rsvp} onChange={u("rsvp")} options={[{ value: "pending", label: "Așteptare" }, { value: "confirmed", label: "Confirmat" }, { value: "declined", label: "Refuzat" }]} />
     <Fld label="Restricții alimentare" value={f.dietary} onChange={u("dietary")} placeholder="vegetarian, vegan..." />
     <div style={{ marginBottom: 12 }}>
@@ -2583,7 +2574,7 @@ export default function App() {
           </div>
         </header>
 
-        <main style={{ flex: 1, overflow: "auto", paddingTop: 12, paddingBottom: "calc(var(--nv) + 12px)" }}>
+        <main style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", paddingTop: 12, paddingBottom: "calc(var(--nv) + 20px)" }}>
           {tab === "home" && <Home />}
           {tab === "guests" && <Guests />}
           {tab === "tables" && <TablesList />}
