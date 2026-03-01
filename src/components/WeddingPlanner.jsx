@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useReducer, createContext, useContext } from "react";
+import { createPortal } from "react-dom";
 
 // ═══════════════════════════════════════════════════════════════
 // WEDIFY v1.0 — Wedding Organizer | Rebranded from Wedify v14
@@ -432,15 +433,18 @@ function Modal({open,onClose,title,children}){
     el.addEventListener('touchmove',stop,{passive:false});
     return()=>el.removeEventListener('touchmove',stop);
   },[open]);
-  if(!open)return null;
-  return(<div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end",touchAction:"none"}}>
-    <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
-    <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"88vh",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
-      <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
-      {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,paddingBottom:10,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
-      <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:10}}>{children}</div>
-    </div>
-  </div>);
+  if(!open||typeof document==="undefined")return null;
+  return createPortal(
+    <div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,height:"100dvh",display:"flex",flexDirection:"column",justifyContent:"flex-end",overscrollBehavior:"contain"}}>
+      <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
+      <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"calc(100dvh - 8px)",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
+        <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
+        {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,paddingBottom:10,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
+        <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:12}}>{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
 }
 function Btn({children,v="primary",onClick,style,disabled,full}){
   const m={primary:{background:"linear-gradient(135deg,var(--g),var(--gd))",color:"#fff",fontWeight:600,boxShadow:"0 3px 12px rgba(184,149,106,.25)"},secondary:{background:"var(--cr)",color:"var(--ink)",border:"1px solid var(--bd)"},danger:{background:"rgba(184,92,92,.08)",color:"var(--er)"},ghost:{background:"transparent",color:"var(--gd)"}};
@@ -807,35 +811,44 @@ function reducer(s, a) {
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 function Home() {
-  const { s, setShowSettings } = useContext(Ctx);
+  const { s, setShowSettings, setTab } = useContext(Ctx);
   const days = Math.max(0, Math.ceil((new Date(s.wedding.date) - new Date()) / 864e5));
   const conf = s.guests.filter(g => g.rsvp === "confirmed").length;
   const pend = s.guests.filter(g => g.rsvp === "pending").length;
   const decl = s.guests.filter(g => g.rsvp === "declined").length;
+  const confPpl = sumGuests(s.guests.filter(g => g.rsvp === "confirmed"));
   const tP = s.budget.reduce((a, b) => a + b.planned, 0);
   const tS = s.budget.reduce((a, b) => a + b.spent, 0);
   const bP = tP > 0 ? Math.round((tS / tP) * 100) : 0;
   const doneT = s.tasks.filter(t => t.status === "done").length;
   const seated = s.guests.filter(g => g.tid).length;
+  const seatedConfPpl = sumGuests(s.guests.filter(g => g.tid && g.rsvp === "confirmed"));
   const urgent = s.tasks.filter(t => t.prio === "high" && t.status !== "done");
   const overdue = s.tasks.filter(t => new Date(t.due) < new Date() && t.status !== "done").length;
   const paidC = s.budget.filter(b => b.status === "paid").length;
   const partC = s.budget.filter(b => b.status === "partial").length;
   const unpC = s.budget.filter(b => b.status === "unpaid").length;
-  const costPerGuest = conf > 0 ? Math.round(tP / conf) : 0;
+  const costPerGuest = confPpl > 0 ? Math.round(tP / confPpl) : 0;
+  const unseatedConfPpl = Math.max(confPpl - seatedConfPpl, 0);
+  const todaysActions = [
+    overdue > 0 && { id: "overdue", title: `Rezolvă ${overdue} task-uri depășite`, hint: "Deschide timeline-ul", tab: "tasks", c: "var(--er)" },
+    unseatedConfPpl > 0 && { id: "seating", title: `Alocă ${unseatedConfPpl} persoane la mese`, hint: "Finalizează planul de mese", tab: "tables", c: "var(--g)" },
+    pend > 0 && { id: "rsvp", title: `Urmărește ${pend} RSVP în așteptare`, hint: "Sună / trimite reminder", tab: "guests", c: "#5A82B4" },
+    unpC > 0 && { id: "budget", title: `${unpC} categorii sunt neplătite`, hint: "Verifică bugetul", tab: "budget", c: "var(--wn)" },
+  ].filter(Boolean).slice(0, 3);
 
   return (
-    <div className="fu" style={{ padding: "0 14px 20px" }}>
+    <div className="fu" style={{ padding: "4px 14px 24px" }}>
       {/* Hero */}
-      <div style={{ background: "linear-gradient(150deg,#1A1A1A,#28221C,#1A1A1A)", borderRadius: "var(--r)", padding: "22px 18px", marginBottom: 12, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, background: "radial-gradient(circle,rgba(184,149,106,.12),transparent 70%)", borderRadius: "50%" }} />
-        <button onClick={() => setShowSettings(true)} style={{ position: "absolute", top: 12, right: 12, padding: 5, color: "rgba(255,255,255,.3)", zIndex: 2 }}>{ic.edit}</button>
+      <div style={{ background: "linear-gradient(145deg,var(--cd),var(--cr))", borderRadius: "var(--r)", padding: "18px 16px", marginBottom: 12, position: "relative", overflow: "hidden", border: "1px solid var(--bd)", boxShadow: "var(--sh)" }}>
+        <div style={{ position: "absolute", top: -45, right: -35, width: 150, height: 150, background: "radial-gradient(circle,rgba(184,149,106,.2),transparent 70%)", borderRadius: "50%" }} />
+        <button onClick={() => setShowSettings(true)} style={{ position: "absolute", top: 10, right: 10, padding: 5, color: "var(--mt)", zIndex: 2 }}>{ic.edit}</button>
         <div style={{ position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}><span style={{ color: "var(--g)" }}>{ic.heart}</span><span style={{ fontSize: 9, color: "var(--gl)", textTransform: "uppercase", letterSpacing: ".15em", fontWeight: 700 }}>Countdown</span></div>
-          <div style={{ fontFamily: "var(--fd)", fontSize: 48, fontWeight: 400, color: "var(--gl)", lineHeight: 1 }}>{days}</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,.35)", marginBottom: 10 }}>zile rămase</div>
-          <div style={{ fontSize: 15, color: "#fff", fontWeight: 600 }}>{s.wedding.couple}</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,.35)", marginTop: 1 }}>{fmtD(s.wedding.date)} · {s.wedding.venue}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}><span style={{ color: "var(--g)" }}>{ic.heart}</span><span style={{ fontSize: 9, color: "var(--gd)", textTransform: "uppercase", letterSpacing: ".15em", fontWeight: 700 }}>Countdown</span></div>
+          <div style={{ fontFamily: "var(--fd)", fontSize: 44, fontWeight: 500, color: "var(--gd)", lineHeight: 1 }}>{days}</div>
+          <div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>zile rămase</div>
+          <div style={{ fontSize: 15, color: "var(--ink)", fontWeight: 600 }}>{s.wedding.couple}</div>
+          <div style={{ fontSize: 11, color: "var(--gr)", marginTop: 2 }}>{fmtD(s.wedding.date)} · {s.wedding.venue}</div>
         </div>
       </div>
 
@@ -851,19 +864,33 @@ function Home() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
         {[
-          { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)" },
-          { l: "Așezați", v: `${seated}/${conf}`, sub: `${conf - seated} rămași`, cl: "var(--g)" },
-          { l: "Tasks", v: `${Math.round((doneT / Math.max(s.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${s.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)" },
-          { l: "Total invitați", v: s.guests.length, sub: `${sumGuests(s.guests)} persoane · ${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)" },
-          { l: "Cost/invitat", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${conf} conf.`, cl: "var(--gd)" },
+          { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)", tab: "guests" },
+          { l: "Așezați", v: `${seatedConfPpl}/${confPpl}`, sub: `${Math.max(confPpl - seatedConfPpl, 0)} rămași`, cl: "var(--g)", tab: "tables" },
+          { l: "Tasks", v: `${Math.round((doneT / Math.max(s.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${s.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)", tab: "tasks" },
+          { l: "Total invitați", v: s.guests.length, sub: `${sumGuests(s.guests)} persoane · ${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)", tab: "guests" },
+          { l: "Cost/persoană", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${confPpl} pers. confirmate`, cl: "var(--gd)", tab: "budget" },
         ].map((x, i) => (
-          <Card key={i} style={{ padding: "12px 10px" }}>
+          <Card key={i} onClick={() => setTab(x.tab)} style={{ padding: "12px 10px", cursor: "pointer" }}>
             <div style={{ fontSize: 9, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 700, marginBottom: 5 }}>{x.l}</div>
             <div style={{ fontFamily: "var(--fd)", fontSize: 26, fontWeight: 500, color: x.cl, lineHeight: 1.1 }}>{x.v}</div>
             <div style={{ fontSize: 10, color: "var(--mt)", marginTop: 1 }}>{x.sub}</div>
           </Card>
         ))}
       </div>
+
+      {todaysActions.length > 0 && <Card style={{ marginBottom: 12, padding: 12 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 8 }}>Ce să faci azi</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          {todaysActions.map(a => <button key={a.id} onClick={() => setTab(a.tab)} style={{ textAlign: "left", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--bd)", background: "var(--cr)", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: a.c, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>{a.title}</div>
+              <div style={{ fontSize: 10, color: "var(--mt)" }}>{a.hint}</div>
+            </div>
+            <span style={{ fontSize: 11, color: "var(--gd)", fontWeight: 700 }}>→</span>
+          </button>)}
+        </div>
+      </Card>}
 
       {/* Budget dashboard — ENHANCED */}
       <Card style={{ marginBottom: 12, padding: 16 }}>
@@ -960,6 +987,8 @@ function Guests() {
   const [editing, setEditing] = useState(null);
   const [qn, setQn] = useState("");
   const [qg, setQg] = useState(s.groups?.[0] || "Prieteni");
+  const [qType, setQType] = useState("single");
+  const [qFamilySize, setQFamilySize] = useState(3);
   const [confirmDel, setConfirmDel] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -980,7 +1009,8 @@ function Guests() {
   const allTags = useMemo(() => { const t = new Set(s.tags || []); s.guests.forEach(g => (g.tags || []).forEach(tag => t.add(tag))); return [...t]; }, [s.guests, s.tags]);
   const gCl = ["#B8956A","#8BA888","#D4A0A0","#5A82B4","#C9A032","#9A9A9A","#A088B8","#B85C5C"];
 
-  const quickAdd = () => { const n = qn.trim(); if (!n) return; d({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: 1 } }); setQn(""); ref.current?.focus() };
+  const quickCount = qType === "couple" ? 2 : qType === "family" ? Math.max(3, Number(qFamilySize) || 3) : 1;
+  const quickAdd = () => { const n = qn.trim(); if (!n) return; d({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: quickCount } }); setQn(""); ref.current?.focus() };
   const cycleRsvp = g => { const nx = { pending: "confirmed", confirmed: "declined", declined: "pending" }; d({ type: "UPD_GUEST", p: { id: g.id, rsvp: nx[g.rsvp] } }) };
 
   return (
@@ -1019,12 +1049,24 @@ function Guests() {
           <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--gd)" }}>⚡ Adaugă rapid</div>
           <button onClick={() => setShowImport(true)} style={{ fontSize: 10, fontWeight: 600, color: "var(--g)", padding: "3px 8px", borderRadius: 8, background: "rgba(184,149,106,.08)" }}>📥 Import CSV</button>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <input ref={ref} value={qn} onChange={e => setQn(e.target.value)} onKeyDown={e => e.key === "Enter" && quickAdd()} placeholder="Nume invitat..." style={{ flex: 1, padding: "9px 11px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13 }} />
-          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 100 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
+          <input ref={ref} value={qn} onChange={e => setQn(e.target.value)} onKeyDown={e => e.key === "Enter" && quickAdd()} placeholder="Nume invitat/familie..." style={{ flex: 1, padding: "9px 11px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13 }} />
+          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 110 }}>
             {groups.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
           <button onClick={quickAdd} style={{ width: 38, height: 38, borderRadius: "var(--rs)", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {[{k:"single",l:"👤 Single"},{k:"couple",l:"👫 Cuplu"},{k:"family",l:"👨‍👩‍👧 Familie"}].map(t => (
+            <button key={t.k} onClick={() => setQType(t.k)} style={{ padding: "5px 9px", borderRadius: 12, fontSize: 11, fontWeight: 600, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
+          ))}
+          {qType === "family" && <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 2 }}>
+            <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Persoane</span>
+            <button onClick={() => setQFamilySize(v => Math.max(3, v - 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>−</button>
+            <span style={{ minWidth: 14, textAlign: "center", fontSize: 12, fontWeight: 700, color: "var(--gd)" }}>{qFamilySize}</span>
+            <button onClick={() => setQFamilySize(v => Math.min(12, v + 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>+</button>
+          </div>}
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--mt)", fontWeight: 600 }}>Se adaugă: {quickCount} pers.</span>
         </div>
       </Card>
 
@@ -1350,6 +1392,7 @@ function BudgetMod() {
   const tS = s.budget.reduce((a, b) => a + b.spent, 0);
   const pct = tP > 0 ? Math.round((tS / tP) * 100) : 0;
   const cl = ["#B8956A", "#8BA888", "#D4A0A0", "#5A82B4", "#C9A032", "#B85C5C", "#9A9A9A", "#A088B8"];
+  const vendorByName = useMemo(() => new Map((s.vendors || []).map(v => [(v.name || "").trim().toLowerCase(), v])), [s.vendors]);
 
   // SVG donut
   let angle = 0;
@@ -1391,10 +1434,11 @@ function BudgetMod() {
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>Categorii</span>
         <Btn v="secondary" onClick={() => { setEditing(null); setShowForm(true) }} style={{ fontSize: 10, padding: "4px 10px" }}>{ic.plus} Adaugă</Btn>
       </div>
-      {s.budget.map((b, i) => { const p = Math.round((b.spent / Math.max(b.planned, 1)) * 100); return (
+      {s.budget.map((b, i) => { const p = Math.round((b.spent / Math.max(b.planned, 1)) * 100); const linkedVendor = vendorByName.get((b.vendor || "").trim().toLowerCase()); return (
         <Card key={b.id} onClick={() => { setEditing(b); setShowForm(true) }} style={{ marginBottom: 7, cursor: "pointer", padding: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: cl[i % cl.length] }} /><span style={{ flex: 1, fontWeight: 600, fontSize: 13 }}>{b.cat}</span><Badge c={b.status === "paid" ? "green" : b.status === "partial" ? "blue" : "gray"}>{b.status === "paid" ? "Plătit" : b.status === "partial" ? "Parțial" : "Neplătit"}</Badge></div>
           {b.vendor && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3 }}>📍 {b.vendor}</div>}
+          {linkedVendor && <div style={{ display: "flex", gap: 5, marginBottom: 4, flexWrap: "wrap" }}><Badge c={linkedVendor.status === "contracted" ? "green" : linkedVendor.status === "negotiating" ? "blue" : "gray"}>{linkedVendor.status === "contracted" ? "Contractat" : linkedVendor.status === "negotiating" ? "Negociere" : linkedVendor.status === "potential" ? "Potențial" : linkedVendor.status}</Badge><Badge c="gold">⭐ {linkedVendor.rating || 0}/5</Badge></div>}
           {b.notes && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3, fontStyle: "italic" }}>📝 {b.notes}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}><span>{fmtC(b.spent)}</span><span style={{ color: "var(--mt)" }}>{fmtC(b.planned)}</span></div>
           <div style={{ height: 4, background: "var(--cr2)", borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", borderRadius: 2, width: `${Math.min(p, 100)}%`, background: p > 100 ? "var(--er)" : "var(--g)", transition: "width .5s" }} /></div>
@@ -1410,15 +1454,40 @@ function BudgetMod() {
 }
 
 function BudgetFormInner({ item, onClose }) {
-  const { d } = useContext(Ctx);
+  const { s, d } = useContext(Ctx);
   const [f, setF] = useState(item ? { ...item } : { cat: "", planned: 0, spent: 0, vendor: "", status: "unpaid" });
   const [showConfirm, setShowConfirm] = useState(false);
   const u = k => v => setF(x => ({ ...x, [k]: v }));
+
+  const norm = (v) => (v || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const sameCat = (vCat, bCat) => norm(vCat).includes(norm(bCat)) || norm(bCat).includes(norm(vCat));
+
+  const vendors = s.vendors || [];
+  const linkedByCat = vendors.filter(v => f.cat && sameCat(v.cat, f.cat));
+  const contractedByCat = linkedByCat.find(v => v.status === "contracted");
+  const vendorOptions = [{ value: "", label: "— Selectează furnizor —" }, ...vendors.map(v => ({ value: v.name, label: `${v.name}${v.cat ? ` · ${v.cat}` : ""}${v.status ? ` (${v.status})` : ""}` }))];
+
+  useEffect(() => {
+    if (!f.cat || f.vendor) return;
+    if (contractedByCat?.name) setF(x => ({ ...x, vendor: contractedByCat.name }));
+  }, [f.cat, f.vendor, contractedByCat?.name]);
+
   return <>
     <Fld label="Categorie" value={f.cat} onChange={u("cat")} />
     <Fld label="Planificat (€)" value={f.planned} onChange={v => u("planned")(parseFloat(v) || 0)} type="number" />
     <Fld label="Cheltuit (€)" value={f.spent} onChange={v => u("spent")(parseFloat(v) || 0)} type="number" />
-    <Fld label="Furnizor" value={f.vendor} onChange={u("vendor")} />
+
+    {contractedByCat && <div style={{ marginBottom: 8, fontSize: 10, color: "var(--ok)", fontWeight: 600 }}>🔗 Sugestie automată pentru categorie: {contractedByCat.name} (contractat)</div>}
+    <Fld label="Furnizor (din listă)" value={f.vendor} onChange={u("vendor")} options={vendorOptions} />
+    <Fld label="Sau introdu manual" value={f.vendor} onChange={u("vendor")} placeholder="Nume furnizor..." />
+
+    {linkedByCat.length > 0 && <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 5 }}>Furnizori pe această categorie</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+        {linkedByCat.map(v => <button key={v.id} onClick={() => u("vendor")(v.name)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, background: f.vendor === v.name ? "var(--gd)" : "var(--cr)", color: f.vendor === v.name ? "#fff" : "var(--gr)", border: `1px solid ${f.vendor === v.name ? "var(--gd)" : "var(--bd)"}` }}>{v.name} {v.status === "contracted" ? "✓" : ""}</button>)}
+      </div>
+    </div>}
+
     <Fld label="Status" value={f.status} onChange={u("status")} options={[{ value: "unpaid", label: "Neplătit" }, { value: "partial", label: "Parțial" }, { value: "paid", label: "Plătit" }]} />
     <Fld label="Note" value={f.notes} onChange={u("notes")} type="textarea" placeholder="Plata în 2 rate, factură trimisă..." />
     <div style={{ display: "flex", gap: 8 }}>
@@ -2008,22 +2077,24 @@ function MenuCalc() {
     const d = g.dietary?.trim().toLowerCase();
     if (d) dietMap[d] = (dietMap[d] || 0) + 1;
   });
-  const standard = conf.length - Object.values(dietMap).reduce((a, b) => a + b, 0);
+  const confPpl = sumGuests(conf);
+  const pendPpl = sumGuests(pend);
+  const standard = confPpl - Object.values(dietMap).reduce((a, b) => a + b, 0);
   const dietList = Object.entries(dietMap).sort((a, b) => b[1] - a[1]);
 
   // Tag-based counts
-  const childCount = conf.filter(g => (g.tags || []).includes("Copil")).length;
-  const adultCount = conf.length - childCount;
+  const childCount = conf.filter(g => (g.tags || []).includes("Copil")).reduce((a, g) => a + gCount(g), 0);
+  const adultCount = Math.max(confPpl - childCount, 0);
 
   // Budget per guest — uses total budget, not magic catering lookup
   const tP = s.budget.reduce((a, b) => a + b.planned, 0);
   const tS = s.budget.reduce((a, b) => a + b.spent, 0);
   const wBudget = s.wedding.budget || tP;
-  const costPerGuest = conf.length > 0 ? Math.round(wBudget / conf.length) : 0;
+  const costPerGuest = confPpl > 0 ? Math.round(wBudget / confPpl) : 0;
 
   const copyText = () => {
     let txt = `SUMAR MENIU — ${s.wedding.couple}\n${fmtD(s.wedding.date)} · ${s.wedding.venue}\n\n`;
-    txt += `TOTAL CONFIRMAȚI: ${conf.length}\n`;
+    txt += `TOTAL CONFIRMAȚI: ${conf.length} invitați (${confPpl} persoane)\n`;
     txt += `  Adulți: ${adultCount}\n`;
     if (childCount > 0) txt += `  Copii: ${childCount}\n`;
     txt += `  Standard (fără restricții): ${standard}\n\n`;
@@ -2031,7 +2102,7 @@ function MenuCalc() {
       txt += `RESTRICȚII ALIMENTARE:\n`;
       dietList.forEach(([d, c]) => { txt += `  ${d.charAt(0).toUpperCase() + d.slice(1)}: ${c} ${c === 1 ? "persoană" : "persoane"}\n`; });
     }
-    txt += `\nÎN AȘTEPTARE: ${pend.length} (posibil +${pend.length})\n`;
+    txt += `\nÎN AȘTEPTARE: ${pend.length} invitați (posibil +${pendPpl} persoane)\n`;
     txt += `\nBUGET TOTAL: ${fmtC(wBudget)}\n`;
     txt += `COST/INVITAT: ~${fmtC(costPerGuest)}\n`;
     navigator.clipboard?.writeText(txt);
@@ -2565,7 +2636,7 @@ export default function App() {
   const titles = { home: "Dashboard", guests: "Invitați", tables: "Aranjare Mese", budget: "Buget", tasks: "Timeline", tools: "Unelte" };
 
   return (
-    <Ctx.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme }}>
+    <Ctx.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme, setTab }}>
       <div data-theme={theme} style={{ width: "100%", maxWidth: 460, margin: "0 auto", height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--ink)", opacity: ready ? 1 : 0, transition: "opacity .3s" }}>
         <header style={{ height: "var(--hd)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px", borderBottom: "1px solid var(--bd)", background: theme === "dark" ? "rgba(26,24,22,.92)" : "rgba(255,253,248,.92)", backdropFilter: "blur(12px)", flexShrink: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}><img src={LOGO_XS} alt="Wedify" style={{ width: 28, height: 28, objectFit: "contain" }} /><span style={{ fontFamily: "var(--fd)", fontSize: 16, fontWeight: 500 }}>{titles[tab]}</span></div>
