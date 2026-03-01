@@ -423,7 +423,7 @@ function openPDF(html) {
 }
 
 // ─── Shared UI ───────────────────────────────────────────────
-function Card({children,style,onClick}){return <div onClick={onClick} style={{background:"var(--cd)",color:"var(--ink)",borderRadius:"var(--r)",border:"1px solid var(--bd)",boxShadow:"var(--sh)",padding:14,...style}}>{children}</div>}
+function Card({children,style,onClick,...props}){return <div onClick={onClick} {...props} style={{background:"var(--cd)",color:"var(--ink)",borderRadius:"var(--r)",border:"1px solid var(--bd)",boxShadow:"var(--sh)",padding:14,...style}}>{children}</div>}
 function Modal({open,onClose,title,children}){
   const overlayRef=useRef(null);
   useEffect(()=>{
@@ -797,6 +797,7 @@ function reducer(s, a) {
     case "ADD_TABLE": return { ...s, tables: [...s.tables, p], activity: log(`${p.name} creată`) };
     case "UPD_TABLE": return { ...s, tables: s.tables.map(t => t.id === p.id ? { ...t, ...p } : t), activity: log(`Masă actualizată`) };
     case "DEL_TABLE": return { ...s, tables: s.tables.filter(t => t.id !== p), guests: s.guests.map(g => g.tid === p ? { ...g, tid: null } : g), activity: log(`Masă ștearsă`) };
+    case "REORDER_TABLES": return { ...s, tables: p, activity: log("Ordine mese actualizată") };
     case "SEAT": { const g = s.guests.find(x => x.id === p.gid); const t = s.tables.find(x => x.id === p.tid); return { ...s, guests: s.guests.map(x => x.id === p.gid ? { ...x, tid: p.tid } : x), activity: log(`${g?.name} → ${t?.name}`) }; }
     case "UNSEAT": { const g = s.guests.find(x => x.id === p); return { ...s, guests: s.guests.map(x => x.id === p ? { ...x, tid: null } : x), activity: log(`${g?.name} scos de la masă`) }; }
     case "MOVE_SEAT": { const g = s.guests.find(x => x.id === p.gid); const t = s.tables.find(x => x.id === p.tid); return { ...s, guests: s.guests.map(x => x.id === p.gid ? { ...x, tid: p.tid } : x), activity: log(`${g?.name} mutat → ${t?.name}`) }; }
@@ -1205,6 +1206,10 @@ function TablesList() {
   const [editingTable, setEditingTable] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [movingGuest, setMovingGuest] = useState(null); // {gid, fromTid}
+  const [tableFilter, setTableFilter] = useState("all");
+  const [tableSort, setTableSort] = useState("default");
+  const [viewMode, setViewMode] = useState("list");
+  const [dragTid, setDragTid] = useState(null);
 
   const unassigned = useMemo(() => s.guests.filter(g => !g.tid && g.rsvp === "confirmed"), [s.guests]);
   const gAt = useCallback(tid => s.guests.filter(g => g.tid === tid), [s.guests]);
@@ -1222,6 +1227,34 @@ function TablesList() {
     return l;
   }, [unassigned, searchG]);
 
+  const tableStats = useMemo(() => s.tables.map(t => {
+    const seated = gAt(t.id);
+    const seatedPersons = seated.reduce((a, g) => a + gCount(g), 0);
+    const free = t.seats - seatedPersons;
+    return { ...t, seated, seatedPersons, free, isFull: free <= 0 };
+  }), [s.tables, gAt]);
+
+  const displayedTables = useMemo(() => {
+    let list = [...tableStats];
+    if (tableFilter === "free") list = list.filter(t => t.free > 0);
+    if (tableFilter === "full") list = list.filter(t => t.free <= 0);
+    if (tableSort === "name") list.sort((a, b) => a.name.localeCompare(b.name, "ro"));
+    if (tableSort === "free_desc") list.sort((a, b) => b.free - a.free);
+    if (tableSort === "free_asc") list.sort((a, b) => a.free - b.free);
+    return list;
+  }, [tableStats, tableFilter, tableSort]);
+
+  const moveTableOrder = (fromId, toId) => {
+    if (!fromId || !toId || fromId === toId) return;
+    const arr = [...s.tables];
+    const from = arr.findIndex(t => t.id === fromId);
+    const to = arr.findIndex(t => t.id === toId);
+    if (from < 0 || to < 0) return;
+    const [it] = arr.splice(from, 1);
+    arr.splice(to, 0, it);
+    d({ type: "REORDER_TABLES", p: arr });
+  };
+
   return (
     <div className="fu" style={{ padding: "0 14px 20px" }}>
       <Card style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1234,6 +1267,34 @@ function TablesList() {
           <div style={{ fontFamily: "var(--fd)", fontSize: 24, fontWeight: 500, color: unassigned.length > 0 ? "var(--wn)" : "var(--ok)" }}>{unassigned.length}</div>
         </div>
       </Card>
+
+      <Card style={{ marginBottom: 12, padding: 10 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Filtru</span>
+          {[{k:"all",l:"Toate"},{k:"free",l:"Cu locuri libere"},{k:"full",l:"Complete"}].map(f => <button key={f.k} onClick={() => setTableFilter(f.k)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: tableFilter===f.k ? "var(--gd)" : "var(--cr)", color: tableFilter===f.k ? "#fff" : "var(--gr)", border: `1px solid ${tableFilter===f.k ? "var(--gd)" : "var(--bd)"}` }}>{f.l}</button>)}
+          <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700, marginLeft: 6 }}>Sortare</span>
+          <select value={tableSort} onChange={e => setTableSort(e.target.value)} style={{ padding: "5px 8px", borderRadius: 10, background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 10, color: "var(--gr)" }}>
+            <option value="default">Implicit</option>
+            <option value="name">Nume A-Z</option>
+            <option value="free_desc">Locuri libere desc</option>
+            <option value="free_asc">Locuri libere asc</option>
+          </select>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+            <button onClick={() => setViewMode("list")} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, background: viewMode === "list" ? "var(--ink)" : "var(--cr)", color: viewMode === "list" ? "var(--bg)" : "var(--mt)", border: `1px solid ${viewMode === "list" ? "var(--ink)" : "var(--bd)"}` }}>Listă</button>
+            <button onClick={() => setViewMode("grid")} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, background: viewMode === "grid" ? "var(--ink)" : "var(--cr)", color: viewMode === "grid" ? "var(--bg)" : "var(--mt)", border: `1px solid ${viewMode === "grid" ? "var(--ink)" : "var(--bd)"}` }}>Grid</button>
+          </div>
+        </div>
+      </Card>
+
+      {viewMode === "grid" && <Card style={{ marginBottom: 12, padding: 10 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 8 }}>Sumar vizual mese</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
+          {displayedTables.map(t => <button key={t.id} onClick={() => { setExpanded(e => ({ ...e, [t.id]: true })); setViewMode("list"); }} style={{ textAlign: "left", padding: "8px", borderRadius: 10, border: "1px solid var(--bd)", background: t.free > 0 ? "var(--cr)" : "rgba(107,158,104,.08)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink)", marginBottom: 2 }}>{t.name}</div>
+            <div style={{ fontSize: 10, color: "var(--mt)" }}>{t.seatedPersons}/{t.seats} pers · {t.free > 0 ? `${t.free} libere` : "Completă"}</div>
+          </button>)}
+        </div>
+      </Card>}
 
       {/* Unassigned chips — just names, no instruction text */}
       {unassigned.length > 0 && <Card style={{ marginBottom: 12, padding: "10px 12px" }}>
@@ -1254,7 +1315,7 @@ function TablesList() {
         <Btn v="secondary" onClick={() => setShowAdd(true)} style={{ fontSize: 11, padding: "5px 12px" }}>{ic.plus} Masă nouă</Btn>
       </div>
 
-      {s.tables.map(table => {
+      {(viewMode === "list" ? displayedTables : []).map(table => {
         const seated = gAt(table.id);
         const seatedPersons = seated.reduce((a, g) => a + gCount(g), 0);
         const free = table.seats - seatedPersons;
@@ -1263,13 +1324,13 @@ function TablesList() {
         const isPicking = pickingFor === table.id;
 
         return (
-          <Card key={table.id} style={{ marginBottom: 8, padding: 0, overflow: "hidden" }}>
+          <Card key={table.id} draggable={tableSort === "default" && tableFilter === "all"} onDragStart={() => setDragTid(table.id)} onDragOver={e => { if (dragTid) e.preventDefault(); }} onDrop={() => { moveTableOrder(dragTid, table.id); setDragTid(null); }} onDragEnd={() => setDragTid(null)} style={{ marginBottom: 8, padding: 0, overflow: "hidden", opacity: dragTid && dragTid !== table.id ? .96 : 1 }}>
             <div onClick={() => toggle(table.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}>
               <div style={{ width: 36, height: 36, borderRadius: table.shape === "round" ? "50%" : 8, background: isFull ? "rgba(107,158,104,.1)" : "var(--cr)", border: `1.5px solid ${isFull ? "var(--ok)" : "var(--bd)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: isFull ? "var(--ok)" : "var(--gd)" }}>{seated.length}</span>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{table.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>{tableSort === "default" && tableFilter === "all" && <span style={{ color: "var(--ft)", fontSize: 12 }}>↕</span>}{table.name}</div>
                 <div style={{ fontSize: 11, color: "var(--mt)" }}>
                   {table.shape === "round" ? "Rotundă" : "Dreptunghiulară"} · {table.seats} locuri · <span style={{ color: isFull ? "var(--ok)" : "var(--gd)", fontWeight: 600 }}>{free} libere</span>
                 </div>
@@ -2556,6 +2617,7 @@ export default function App() {
       case "ADD_TABLE": dbSync.addTable(wid, p).then(row => { if (row) dispatch({ type: "UPD_TABLE", p: { id: p.id, ...row } }); }); break;
       case "UPD_TABLE": dbSync.updateTable(p.id, p); break;
       case "DEL_TABLE": dbSync.deleteTable(p); break;
+      case "REORDER_TABLES": break;
       case "ADD_BUDGET": dbSync.addBudgetItem(wid, p).then(row => { if (row) dispatch({ type: "UPD_BUDGET", p: { id: p.id, ...row, cat: row.category } }); }); break;
       case "UPD_BUDGET": dbSync.updateBudgetItem(p.id, p); break;
       case "DEL_BUDGET": dbSync.deleteBudgetItem(p); break;
