@@ -821,17 +821,19 @@ function Home() {
   const conf = s.guests.filter(g => g.rsvp === "confirmed").length;
   const pend = s.guests.filter(g => g.rsvp === "pending").length;
   const decl = s.guests.filter(g => g.rsvp === "declined").length;
+  const confPpl = sumGuests(s.guests.filter(g => g.rsvp === "confirmed"));
   const tP = s.budget.reduce((a, b) => a + b.planned, 0);
   const tS = s.budget.reduce((a, b) => a + b.spent, 0);
   const bP = tP > 0 ? Math.round((tS / tP) * 100) : 0;
   const doneT = s.tasks.filter(t => t.status === "done").length;
   const seated = s.guests.filter(g => g.tid).length;
+  const seatedConfPpl = sumGuests(s.guests.filter(g => g.tid && g.rsvp === "confirmed"));
   const urgent = s.tasks.filter(t => t.prio === "high" && t.status !== "done");
   const overdue = s.tasks.filter(t => new Date(t.due) < new Date() && t.status !== "done").length;
   const paidC = s.budget.filter(b => b.status === "paid").length;
   const partC = s.budget.filter(b => b.status === "partial").length;
   const unpC = s.budget.filter(b => b.status === "unpaid").length;
-  const costPerGuest = conf > 0 ? Math.round(tP / conf) : 0;
+  const costPerGuest = confPpl > 0 ? Math.round(tP / confPpl) : 0;
 
   return (
     <div className="fu" style={{ padding: "4px 14px 24px" }}>
@@ -861,10 +863,10 @@ function Home() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
         {[
           { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)" },
-          { l: "Așezați", v: `${seated}/${conf}`, sub: `${conf - seated} rămași`, cl: "var(--g)" },
+          { l: "Așezați", v: `${seatedConfPpl}/${confPpl}`, sub: `${Math.max(confPpl - seatedConfPpl, 0)} rămași`, cl: "var(--g)" },
           { l: "Tasks", v: `${Math.round((doneT / Math.max(s.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${s.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)" },
           { l: "Total invitați", v: s.guests.length, sub: `${sumGuests(s.guests)} persoane · ${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)" },
-          { l: "Cost/invitat", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${conf} conf.`, cl: "var(--gd)" },
+          { l: "Cost/persoană", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${confPpl} pers. confirmate`, cl: "var(--gd)" },
         ].map((x, i) => (
           <Card key={i} style={{ padding: "12px 10px" }}>
             <div style={{ fontSize: 9, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 700, marginBottom: 5 }}>{x.l}</div>
@@ -969,6 +971,8 @@ function Guests() {
   const [editing, setEditing] = useState(null);
   const [qn, setQn] = useState("");
   const [qg, setQg] = useState(s.groups?.[0] || "Prieteni");
+  const [qType, setQType] = useState("single");
+  const [qFamilySize, setQFamilySize] = useState(3);
   const [confirmDel, setConfirmDel] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -989,7 +993,8 @@ function Guests() {
   const allTags = useMemo(() => { const t = new Set(s.tags || []); s.guests.forEach(g => (g.tags || []).forEach(tag => t.add(tag))); return [...t]; }, [s.guests, s.tags]);
   const gCl = ["#B8956A","#8BA888","#D4A0A0","#5A82B4","#C9A032","#9A9A9A","#A088B8","#B85C5C"];
 
-  const quickAdd = () => { const n = qn.trim(); if (!n) return; d({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: 1 } }); setQn(""); ref.current?.focus() };
+  const quickCount = qType === "couple" ? 2 : qType === "family" ? Math.max(3, Number(qFamilySize) || 3) : 1;
+  const quickAdd = () => { const n = qn.trim(); if (!n) return; d({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: quickCount } }); setQn(""); ref.current?.focus() };
   const cycleRsvp = g => { const nx = { pending: "confirmed", confirmed: "declined", declined: "pending" }; d({ type: "UPD_GUEST", p: { id: g.id, rsvp: nx[g.rsvp] } }) };
 
   return (
@@ -1028,12 +1033,24 @@ function Guests() {
           <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--gd)" }}>⚡ Adaugă rapid</div>
           <button onClick={() => setShowImport(true)} style={{ fontSize: 10, fontWeight: 600, color: "var(--g)", padding: "3px 8px", borderRadius: 8, background: "rgba(184,149,106,.08)" }}>📥 Import CSV</button>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <input ref={ref} value={qn} onChange={e => setQn(e.target.value)} onKeyDown={e => e.key === "Enter" && quickAdd()} placeholder="Nume invitat..." style={{ flex: 1, padding: "9px 11px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13 }} />
-          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 100 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
+          <input ref={ref} value={qn} onChange={e => setQn(e.target.value)} onKeyDown={e => e.key === "Enter" && quickAdd()} placeholder="Nume invitat/familie..." style={{ flex: 1, padding: "9px 11px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13 }} />
+          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 110 }}>
             {groups.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
           <button onClick={quickAdd} style={{ width: 38, height: 38, borderRadius: "var(--rs)", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {[{k:"single",l:"👤 Single"},{k:"couple",l:"👫 Cuplu"},{k:"family",l:"👨‍👩‍👧 Familie"}].map(t => (
+            <button key={t.k} onClick={() => setQType(t.k)} style={{ padding: "5px 9px", borderRadius: 12, fontSize: 11, fontWeight: 600, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
+          ))}
+          {qType === "family" && <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 2 }}>
+            <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Persoane</span>
+            <button onClick={() => setQFamilySize(v => Math.max(3, v - 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>−</button>
+            <span style={{ minWidth: 14, textAlign: "center", fontSize: 12, fontWeight: 700, color: "var(--gd)" }}>{qFamilySize}</span>
+            <button onClick={() => setQFamilySize(v => Math.min(12, v + 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>+</button>
+          </div>}
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--mt)", fontWeight: 600 }}>Se adaugă: {quickCount} pers.</span>
         </div>
       </Card>
 
@@ -2017,22 +2034,24 @@ function MenuCalc() {
     const d = g.dietary?.trim().toLowerCase();
     if (d) dietMap[d] = (dietMap[d] || 0) + 1;
   });
-  const standard = conf.length - Object.values(dietMap).reduce((a, b) => a + b, 0);
+  const confPpl = sumGuests(conf);
+  const pendPpl = sumGuests(pend);
+  const standard = confPpl - Object.values(dietMap).reduce((a, b) => a + b, 0);
   const dietList = Object.entries(dietMap).sort((a, b) => b[1] - a[1]);
 
   // Tag-based counts
-  const childCount = conf.filter(g => (g.tags || []).includes("Copil")).length;
-  const adultCount = conf.length - childCount;
+  const childCount = conf.filter(g => (g.tags || []).includes("Copil")).reduce((a, g) => a + gCount(g), 0);
+  const adultCount = Math.max(confPpl - childCount, 0);
 
   // Budget per guest — uses total budget, not magic catering lookup
   const tP = s.budget.reduce((a, b) => a + b.planned, 0);
   const tS = s.budget.reduce((a, b) => a + b.spent, 0);
   const wBudget = s.wedding.budget || tP;
-  const costPerGuest = conf.length > 0 ? Math.round(wBudget / conf.length) : 0;
+  const costPerGuest = confPpl > 0 ? Math.round(wBudget / confPpl) : 0;
 
   const copyText = () => {
     let txt = `SUMAR MENIU — ${s.wedding.couple}\n${fmtD(s.wedding.date)} · ${s.wedding.venue}\n\n`;
-    txt += `TOTAL CONFIRMAȚI: ${conf.length}\n`;
+    txt += `TOTAL CONFIRMAȚI: ${conf.length} invitați (${confPpl} persoane)\n`;
     txt += `  Adulți: ${adultCount}\n`;
     if (childCount > 0) txt += `  Copii: ${childCount}\n`;
     txt += `  Standard (fără restricții): ${standard}\n\n`;
@@ -2040,7 +2059,7 @@ function MenuCalc() {
       txt += `RESTRICȚII ALIMENTARE:\n`;
       dietList.forEach(([d, c]) => { txt += `  ${d.charAt(0).toUpperCase() + d.slice(1)}: ${c} ${c === 1 ? "persoană" : "persoane"}\n`; });
     }
-    txt += `\nÎN AȘTEPTARE: ${pend.length} (posibil +${pend.length})\n`;
+    txt += `\nÎN AȘTEPTARE: ${pend.length} invitați (posibil +${pendPpl} persoane)\n`;
     txt += `\nBUGET TOTAL: ${fmtC(wBudget)}\n`;
     txt += `COST/INVITAT: ~${fmtC(costPerGuest)}\n`;
     navigator.clipboard?.writeText(txt);
