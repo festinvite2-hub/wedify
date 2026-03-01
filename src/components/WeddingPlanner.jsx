@@ -560,18 +560,19 @@ function AuthScreen({onLogin}){
     setMode("forgot_sent");
   };
 
-  const inp={width:"100%",padding:"13px 14px",borderRadius:12,background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.1)",color:"#fff",fontSize:15,marginBottom:10};
-  const mBtn={width:"100%",padding:14,borderRadius:12,background:loading?"rgba(184,149,106,.5)":"linear-gradient(135deg,var(--g),var(--gd))",color:"#fff",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8};
+  const inp={width:"100%",padding:"14px 16px",borderRadius:14,background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.15)",color:"#fff",fontSize:15,marginBottom:10,backdropFilter:"blur(4px)"};
+  const mBtn={width:"100%",padding:15,borderRadius:14,background:loading?"rgba(184,149,106,.55)":"linear-gradient(135deg,var(--g),var(--gd))",color:"#fff",fontSize:15,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxShadow:"0 8px 26px rgba(0,0,0,.22)"};
   const spin=<div style={{width:16,height:16,border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin .5s linear infinite"}}/>;
 
   return(
-    <div style={{height:"100vh",width:"100%",display:"flex",flexDirection:"column",background:"linear-gradient(155deg,#1A1A1A,#28221C,#1A1A1A)",overflow:"auto",opacity:ready?1:0,transition:"opacity .7s"}}>
-      <div style={{position:"absolute",top:-50,right:-50,width:180,height:180,background:"radial-gradient(circle,rgba(184,149,106,.12),transparent 70%)",borderRadius:"50%"}}/>
-      <div style={{flex:"0 0 auto",padding:"50px 28px 0",textAlign:"center",position:"relative",zIndex:1}}>
-        <img src={LOGO_SM} alt="Wedify" style={{width:120,height:120,objectFit:"contain",marginBottom:6}} />
+    <div style={{minHeight:"100dvh",width:"100%",display:"flex",flexDirection:"column",background:"radial-gradient(circle at 12% 8%,rgba(184,149,106,.16),transparent 35%), radial-gradient(circle at 88% 95%,rgba(184,149,106,.14),transparent 38%), linear-gradient(155deg,#171513,#241E19,#171513)",overflow:"auto",opacity:ready?1:0,transition:"opacity .7s"}}>
+      <div style={{position:"absolute",top:-60,right:-70,width:240,height:240,background:"radial-gradient(circle,rgba(184,149,106,.16),transparent 70%)",borderRadius:"50%"}}/>
+      <div style={{position:"absolute",bottom:-70,left:-80,width:260,height:260,background:"radial-gradient(circle,rgba(184,149,106,.12),transparent 72%)",borderRadius:"50%"}}/>
+      <div style={{flex:"0 0 auto",padding:"46px 28px 0",textAlign:"center",position:"relative",zIndex:1}}>
+        <img src={LOGO_SM} alt="Wedify" style={{width:132,height:132,objectFit:"contain",marginBottom:6,filter:"drop-shadow(0 8px 18px rgba(0,0,0,.45))"}} />
       </div>
-      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"20px 22px",position:"relative",zIndex:1}}>
-        <div style={{background:"rgba(255,255,255,.035)",backdropFilter:"blur(16px)",borderRadius:18,padding:"24px 20px",border:"1px solid rgba(255,255,255,.05)"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"20px 22px 26px",position:"relative",zIndex:1}}>
+        <div style={{width:"100%",maxWidth:760,margin:"0 auto",background:"rgba(17,16,14,.42)",backdropFilter:"blur(18px)",borderRadius:24,padding:"28px 24px",border:"1px solid rgba(255,255,255,.08)",boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
 
           {mode==="login"&&<>
             <h2 style={{fontFamily:"var(--fd)",fontSize:20,color:"#fff",textAlign:"center",marginBottom:20}}>Conectare</h2>
@@ -580,8 +581,8 @@ function AuthScreen({onLogin}){
             {err&&<div style={{padding:"8px 12px",borderRadius:10,marginBottom:10,background:"rgba(184,92,92,.12)",color:"#E88",fontSize:12,animation:"shake .3s"}}>{err}</div>}
             <button onClick={doLogin} disabled={loading} style={mBtn}>{loading&&spin}Intră</button>
             <div style={{display:"flex",justifyContent:"space-between",marginTop:14}}>
-              <button onClick={()=>{setMode("forgot");setErr("")}} style={{fontSize:11,color:"rgba(255,255,255,.4)"}}>Am uitat parola</button>
-              <button onClick={()=>{setMode("register");setErr("");setPass("");setPass2("")}} style={{fontSize:12,color:"var(--gl)",opacity:.6}}>Creează cont →</button>
+              <button onClick={()=>{setMode("forgot");setErr("")}} style={{fontSize:12,color:"rgba(255,255,255,.65)"}}>Am uitat parola</button>
+              <button onClick={()=>{setMode("register");setErr("");setPass("");setPass2("")}} style={{fontSize:12,color:"var(--gl)",opacity:.9,fontWeight:600}}>Creează cont →</button>
             </div>
           </>}
 
@@ -2730,10 +2731,12 @@ export default function App() {
   // ── Loading screen ──
   if (authLoading || dataLoading) {
     return (
-      <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(155deg,#1A1A1A,#28221C,#1A1A1A)" }}>
-        <img src={LOGO_SM} alt="Wedify" style={{ width: 80, height: 80, objectFit: "contain", marginBottom: 16, opacity: 0.7 }} />
-        <div style={{ width: 24, height: 24, border: "2px solid rgba(184,149,106,.3)", borderTopColor: "var(--g)", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
-        <p style={{ marginTop: 12, fontSize: 12, color: "rgba(255,255,255,.3)" }}>Se încarcă...</p>
+      <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle at 12% 8%,rgba(184,149,106,.16),transparent 35%), radial-gradient(circle at 86% 90%,rgba(184,149,106,.14),transparent 40%), linear-gradient(155deg,#171513,#241E19,#171513)", padding: "24px" }}>
+        <div style={{ width: "100%", maxWidth: 420, borderRadius: 24, border: "1px solid rgba(255,255,255,.08)", background: "rgba(17,16,14,.38)", backdropFilter: "blur(20px)", padding: "34px 24px", display: "flex", flexDirection: "column", alignItems: "center", boxShadow: "0 20px 60px rgba(0,0,0,.38)" }}>
+          <img src={LOGO_SM} alt="Wedify" style={{ width: 118, height: 118, objectFit: "contain", marginBottom: 16, filter: "drop-shadow(0 8px 18px rgba(0,0,0,.45))" }} />
+          <div style={{ width: 30, height: 30, border: "2px solid rgba(184,149,106,.28)", borderTopColor: "var(--g)", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
+          <p style={{ marginTop: 12, fontSize: 13, color: "rgba(255,255,255,.72)", letterSpacing: ".02em" }}>Se încarcă...</p>
+        </div>
       </div>
     );
   }
