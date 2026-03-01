@@ -1376,6 +1376,7 @@ function BudgetMod() {
   const tS = s.budget.reduce((a, b) => a + b.spent, 0);
   const pct = tP > 0 ? Math.round((tS / tP) * 100) : 0;
   const cl = ["#B8956A", "#8BA888", "#D4A0A0", "#5A82B4", "#C9A032", "#B85C5C", "#9A9A9A", "#A088B8"];
+  const vendorByName = useMemo(() => new Map((s.vendors || []).map(v => [(v.name || "").trim().toLowerCase(), v])), [s.vendors]);
 
   // SVG donut
   let angle = 0;
@@ -1417,10 +1418,11 @@ function BudgetMod() {
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>Categorii</span>
         <Btn v="secondary" onClick={() => { setEditing(null); setShowForm(true) }} style={{ fontSize: 10, padding: "4px 10px" }}>{ic.plus} Adaugă</Btn>
       </div>
-      {s.budget.map((b, i) => { const p = Math.round((b.spent / Math.max(b.planned, 1)) * 100); return (
+      {s.budget.map((b, i) => { const p = Math.round((b.spent / Math.max(b.planned, 1)) * 100); const linkedVendor = vendorByName.get((b.vendor || "").trim().toLowerCase()); return (
         <Card key={b.id} onClick={() => { setEditing(b); setShowForm(true) }} style={{ marginBottom: 7, cursor: "pointer", padding: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: cl[i % cl.length] }} /><span style={{ flex: 1, fontWeight: 600, fontSize: 13 }}>{b.cat}</span><Badge c={b.status === "paid" ? "green" : b.status === "partial" ? "blue" : "gray"}>{b.status === "paid" ? "Plătit" : b.status === "partial" ? "Parțial" : "Neplătit"}</Badge></div>
           {b.vendor && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3 }}>📍 {b.vendor}</div>}
+          {linkedVendor && <div style={{ display: "flex", gap: 5, marginBottom: 4, flexWrap: "wrap" }}><Badge c={linkedVendor.status === "contracted" ? "green" : linkedVendor.status === "negotiating" ? "blue" : "gray"}>{linkedVendor.status === "contracted" ? "Contractat" : linkedVendor.status === "negotiating" ? "Negociere" : linkedVendor.status === "potential" ? "Potențial" : linkedVendor.status}</Badge><Badge c="gold">⭐ {linkedVendor.rating || 0}/5</Badge></div>}
           {b.notes && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3, fontStyle: "italic" }}>📝 {b.notes}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}><span>{fmtC(b.spent)}</span><span style={{ color: "var(--mt)" }}>{fmtC(b.planned)}</span></div>
           <div style={{ height: 4, background: "var(--cr2)", borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", borderRadius: 2, width: `${Math.min(p, 100)}%`, background: p > 100 ? "var(--er)" : "var(--g)", transition: "width .5s" }} /></div>
@@ -1436,15 +1438,40 @@ function BudgetMod() {
 }
 
 function BudgetFormInner({ item, onClose }) {
-  const { d } = useContext(Ctx);
+  const { s, d } = useContext(Ctx);
   const [f, setF] = useState(item ? { ...item } : { cat: "", planned: 0, spent: 0, vendor: "", status: "unpaid" });
   const [showConfirm, setShowConfirm] = useState(false);
   const u = k => v => setF(x => ({ ...x, [k]: v }));
+
+  const norm = (v) => (v || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const sameCat = (vCat, bCat) => norm(vCat).includes(norm(bCat)) || norm(bCat).includes(norm(vCat));
+
+  const vendors = s.vendors || [];
+  const linkedByCat = vendors.filter(v => f.cat && sameCat(v.cat, f.cat));
+  const contractedByCat = linkedByCat.find(v => v.status === "contracted");
+  const vendorOptions = [{ value: "", label: "— Selectează furnizor —" }, ...vendors.map(v => ({ value: v.name, label: `${v.name}${v.cat ? ` · ${v.cat}` : ""}${v.status ? ` (${v.status})` : ""}` }))];
+
+  useEffect(() => {
+    if (!f.cat || f.vendor) return;
+    if (contractedByCat?.name) setF(x => ({ ...x, vendor: contractedByCat.name }));
+  }, [f.cat, f.vendor, contractedByCat?.name]);
+
   return <>
     <Fld label="Categorie" value={f.cat} onChange={u("cat")} />
     <Fld label="Planificat (€)" value={f.planned} onChange={v => u("planned")(parseFloat(v) || 0)} type="number" />
     <Fld label="Cheltuit (€)" value={f.spent} onChange={v => u("spent")(parseFloat(v) || 0)} type="number" />
-    <Fld label="Furnizor" value={f.vendor} onChange={u("vendor")} />
+
+    {contractedByCat && <div style={{ marginBottom: 8, fontSize: 10, color: "var(--ok)", fontWeight: 600 }}>🔗 Sugestie automată pentru categorie: {contractedByCat.name} (contractat)</div>}
+    <Fld label="Furnizor (din listă)" value={f.vendor} onChange={u("vendor")} options={vendorOptions} />
+    <Fld label="Sau introdu manual" value={f.vendor} onChange={u("vendor")} placeholder="Nume furnizor..." />
+
+    {linkedByCat.length > 0 && <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 5 }}>Furnizori pe această categorie</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+        {linkedByCat.map(v => <button key={v.id} onClick={() => u("vendor")(v.name)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, background: f.vendor === v.name ? "var(--gd)" : "var(--cr)", color: f.vendor === v.name ? "#fff" : "var(--gr)", border: `1px solid ${f.vendor === v.name ? "var(--gd)" : "var(--bd)"}` }}>{v.name} {v.status === "contracted" ? "✓" : ""}</button>)}
+      </div>
+    </div>}
+
     <Fld label="Status" value={f.status} onChange={u("status")} options={[{ value: "unpaid", label: "Neplătit" }, { value: "partial", label: "Parțial" }, { value: "paid", label: "Plătit" }]} />
     <Fld label="Note" value={f.notes} onChange={u("notes")} type="textarea" placeholder="Plata în 2 rate, factură trimisă..." />
     <div style={{ display: "flex", gap: 8 }}>
