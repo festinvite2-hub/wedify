@@ -427,13 +427,18 @@ function Modal({open,onClose,title,children}){
   const overlayRef=useRef(null);
   useEffect(()=>{
     if(!open)return;
-    const el=overlayRef.current;if(!el)return;
-    const stop=e=>{const sc=el.querySelector('[data-ms]');if(sc&&sc.contains(e.target))return;e.preventDefault()};
-    el.addEventListener('touchmove',stop,{passive:false});
-    return()=>el.removeEventListener('touchmove',stop);
+    const prevBodyOverflow=document.body.style.overflow;
+    const prevRootOverflow=document.getElementById("root")?.style.overflow;
+    document.body.style.overflow="hidden";
+    const rootEl=document.getElementById("root");
+    if(rootEl)rootEl.style.overflow="hidden";
+    return()=>{
+      document.body.style.overflow=prevBodyOverflow;
+      if(rootEl&&prevRootOverflow!==undefined)rootEl.style.overflow=prevRootOverflow;
+    };
   },[open]);
   if(!open)return null;
-  return(<div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end",touchAction:"none"}}>
+  return(<div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end",overscrollBehavior:"contain"}}>
     <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
     <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"88vh",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
       <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
@@ -2424,11 +2429,16 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true); // checking session
   const [dataLoading, setDataLoading] = useState(false);
   const [weddingId, setWeddingId] = useState(null);
+  const localMode = !getSupabase();
 
   // ── Check Supabase session on mount ──
   useEffect(() => {
     const sb = getSupabase();
-    if (!sb) { setAuthLoading(false); return; }
+    if (!sb) {
+      setAuthUser({ id: "local-dev-user" });
+      setAuthLoading(false);
+      return;
+    }
 
     // Get current session
     sb.auth.getUser().then(({ data: { user } }) => {
@@ -2452,6 +2462,19 @@ export default function App() {
   // ── Load data from Supabase when user logs in ──
   useEffect(() => {
     if (!authUser) return;
+
+    if (localMode) {
+      try {
+        const raw = typeof window !== "undefined" ? window.localStorage.getItem("wedify_local_data") : null;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") dispatch({ type: "SET", p: parsed });
+        }
+      } catch {}
+      setDataLoading(false);
+      return;
+    }
+
     setDataLoading(true);
     loadAllData(authUser.id).then(data => {
       if (data) {
@@ -2460,9 +2483,16 @@ export default function App() {
       }
       setDataLoading(false);
     }).catch(() => setDataLoading(false));
-  }, [authUser]);
+  }, [authUser, localMode]);
 
   // ── Sync reducer actions to Supabase ──
+  useEffect(() => {
+    if (!localMode) return;
+    try {
+      if (typeof window !== "undefined") window.localStorage.setItem("wedify_local_data", JSON.stringify(s));
+    } catch {}
+  }, [s, localMode]);
+
   const d = (action) => {
     dispatch(action);
     // Fire & forget DB sync
