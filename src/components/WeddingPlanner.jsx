@@ -816,7 +816,7 @@ function reducer(s, a) {
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 function Home() {
-  const { s, setShowSettings } = useContext(Ctx);
+  const { s, setShowSettings, setTab } = useContext(Ctx);
   const days = Math.max(0, Math.ceil((new Date(s.wedding.date) - new Date()) / 864e5));
   const conf = s.guests.filter(g => g.rsvp === "confirmed").length;
   const pend = s.guests.filter(g => g.rsvp === "pending").length;
@@ -834,6 +834,13 @@ function Home() {
   const partC = s.budget.filter(b => b.status === "partial").length;
   const unpC = s.budget.filter(b => b.status === "unpaid").length;
   const costPerGuest = confPpl > 0 ? Math.round(tP / confPpl) : 0;
+  const unseatedConfPpl = Math.max(confPpl - seatedConfPpl, 0);
+  const todaysActions = [
+    overdue > 0 && { id: "overdue", title: `Rezolvă ${overdue} task-uri depășite`, hint: "Deschide timeline-ul", tab: "tasks", c: "var(--er)" },
+    unseatedConfPpl > 0 && { id: "seating", title: `Alocă ${unseatedConfPpl} persoane la mese`, hint: "Finalizează planul de mese", tab: "tables", c: "var(--g)" },
+    pend > 0 && { id: "rsvp", title: `Urmărește ${pend} RSVP în așteptare`, hint: "Sună / trimite reminder", tab: "guests", c: "#5A82B4" },
+    unpC > 0 && { id: "budget", title: `${unpC} categorii sunt neplătite`, hint: "Verifică bugetul", tab: "budget", c: "var(--wn)" },
+  ].filter(Boolean).slice(0, 3);
 
   return (
     <div className="fu" style={{ padding: "4px 14px 24px" }}>
@@ -862,19 +869,33 @@ function Home() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
         {[
-          { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)" },
-          { l: "Așezați", v: `${seatedConfPpl}/${confPpl}`, sub: `${Math.max(confPpl - seatedConfPpl, 0)} rămași`, cl: "var(--g)" },
-          { l: "Tasks", v: `${Math.round((doneT / Math.max(s.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${s.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)" },
-          { l: "Total invitați", v: s.guests.length, sub: `${sumGuests(s.guests)} persoane · ${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)" },
-          { l: "Cost/persoană", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${confPpl} pers. confirmate`, cl: "var(--gd)" },
+          { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)", tab: "guests" },
+          { l: "Așezați", v: `${seatedConfPpl}/${confPpl}`, sub: `${Math.max(confPpl - seatedConfPpl, 0)} rămași`, cl: "var(--g)", tab: "tables" },
+          { l: "Tasks", v: `${Math.round((doneT / Math.max(s.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${s.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)", tab: "tasks" },
+          { l: "Total invitați", v: s.guests.length, sub: `${sumGuests(s.guests)} persoane · ${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)", tab: "guests" },
+          { l: "Cost/persoană", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${confPpl} pers. confirmate`, cl: "var(--gd)", tab: "budget" },
         ].map((x, i) => (
-          <Card key={i} style={{ padding: "12px 10px" }}>
+          <Card key={i} onClick={() => setTab(x.tab)} style={{ padding: "12px 10px", cursor: "pointer" }}>
             <div style={{ fontSize: 9, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 700, marginBottom: 5 }}>{x.l}</div>
             <div style={{ fontFamily: "var(--fd)", fontSize: 26, fontWeight: 500, color: x.cl, lineHeight: 1.1 }}>{x.v}</div>
             <div style={{ fontSize: 10, color: "var(--mt)", marginTop: 1 }}>{x.sub}</div>
           </Card>
         ))}
       </div>
+
+      {todaysActions.length > 0 && <Card style={{ marginBottom: 12, padding: 12 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 8 }}>Ce să faci azi</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          {todaysActions.map(a => <button key={a.id} onClick={() => setTab(a.tab)} style={{ textAlign: "left", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--bd)", background: "var(--cr)", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: a.c, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>{a.title}</div>
+              <div style={{ fontSize: 10, color: "var(--mt)" }}>{a.hint}</div>
+            </div>
+            <span style={{ fontSize: 11, color: "var(--gd)", fontWeight: 700 }}>→</span>
+          </button>)}
+        </div>
+      </Card>}
 
       {/* Budget dashboard — ENHANCED */}
       <Card style={{ marginBottom: 12, padding: 16 }}>
@@ -2620,7 +2641,7 @@ export default function App() {
   const titles = { home: "Dashboard", guests: "Invitați", tables: "Aranjare Mese", budget: "Buget", tasks: "Timeline", tools: "Unelte" };
 
   return (
-    <Ctx.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme }}>
+    <Ctx.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme, setTab }}>
       <div data-theme={theme} style={{ width: "100%", maxWidth: 460, margin: "0 auto", height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--ink)", opacity: ready ? 1 : 0, transition: "opacity .3s" }}>
         <header style={{ height: "var(--hd)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px", borderBottom: "1px solid var(--bd)", background: theme === "dark" ? "rgba(26,24,22,.92)" : "rgba(255,253,248,.92)", backdropFilter: "blur(12px)", flexShrink: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}><img src={LOGO_XS} alt="Wedify" style={{ width: 28, height: 28, objectFit: "contain" }} /><span style={{ fontFamily: "var(--fd)", fontSize: 16, fontWeight: 500 }}>{titles[tab]}</span></div>
