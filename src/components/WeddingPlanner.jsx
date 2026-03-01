@@ -131,6 +131,9 @@ async function loadAllData(userId) {
     wedding: {
       couple: wedding.couple || '', date: wedding.date || '', venue: wedding.venue || '',
       budget: Number(wedding.budget) || 15000,
+      guestTarget: Math.max(1, Number(wedding.guest_target) || Number(wedding.guestTarget) || 100),
+      program: Array.isArray(wedding.program) ? wedding.program : [],
+      theme: wedding.theme || '',
     },
     weddingId: wedding.id,
     groups: wedding.groups || ["Familie Mireasă","Familie Mire","Prieteni","Colegi"],
@@ -159,6 +162,7 @@ const dbSync = {
     if (data.onboarded !== undefined) mapped.onboarded = data.onboarded;
     if (data.program !== undefined) mapped.program = data.program;
     if (data.theme !== undefined) mapped.theme = data.theme;
+    if (data.guestTarget !== undefined) mapped.guest_target = Math.max(1, Number(data.guestTarget) || 1);
     if (Object.keys(mapped).length > 0) await sb.from('weddings').update(mapped).eq('id', weddingId);
   },
   async addGuest(weddingId, guest) {
@@ -675,6 +679,7 @@ function SettingsModal({open,onClose}){
     <Fld label="Data nunții" value={f.date} onChange={u("date")} type="date"/>
     <Fld label="Locația" value={f.venue} onChange={u("venue")} placeholder="Palatul Mogoșoaia"/>
     <Fld label="Buget total (€)" value={f.budget} onChange={v=>u("budget")(parseFloat(v)||0)} type="number"/>
+    <Fld label="Invitați estimați (țintă)" value={f.guestTarget ?? 100} onChange={v=>u("guestTarget")(Math.max(1, parseInt(v || "0", 10) || 1))} type="number"/>
     
     <div style={{marginBottom:14}}>
       <label style={{display:"block",fontSize:10,fontWeight:700,color:"var(--mt)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>Grupuri invitați</label>
@@ -728,7 +733,7 @@ function SettingsModal({open,onClose}){
 // DATA + REDUCER
 // ═══════════════════════════════════════════════════════════════
 const DATA = {
-  wedding:{couple:"Alexandra & Mihai",date:"2026-09-12",venue:"Palatul Mogoșoaia",budget:25000},
+  wedding:{couple:"Alexandra & Mihai",date:"2026-09-12",venue:"Palatul Mogoșoaia",budget:25000,guestTarget:120,program:[],theme:""},
   groups:["Familie Mireasă","Familie Mire","Prieteni","Colegi"],
   tags:["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă","Vegetarian","Plus one"],
   onboarded: true,
@@ -873,6 +878,7 @@ function Home() {
           <div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>zile rămase</div>
           <div style={{ fontSize: 15, color: "var(--ink)", fontWeight: 600 }}>{s.wedding.couple}</div>
           <div style={{ fontSize: 11, color: "var(--gr)", marginTop: 2 }}>{fmtD(s.wedding.date)} · {s.wedding.venue}</div>
+          <div style={{ fontSize: 10, color: "var(--mt)", marginTop: 4 }}>Țintă invitați: {Math.max(1, Number(s.wedding.guestTarget) || 100)}</div>
         </div>
       </div>
 
@@ -2004,7 +2010,7 @@ function Onboarding({ onComplete }) {
       { id: mkid(), title: "Alege muzica/DJ", due: "", status: "pending", prio: "low", cat: "Muzică" },
     ];
     onComplete({
-      wedding: { couple, date, venue, budget: Number(budget) },
+      wedding: { couple, date, venue, budget: Number(budget), guestTarget: Math.max(1, Number(guestCount) || 1), program: [], theme: "" },
       groups: ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"],
       guests: [], tables, budget: defaultBudget, tasks: defaultTasks, vendors: [],
       onboarded: true, activity: [{ id: mkid(), msg: "Nuntă configurată!", ts: new Date().toISOString() }],
