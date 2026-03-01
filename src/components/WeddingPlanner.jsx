@@ -6,6 +6,10 @@ import { useState, useEffect, useCallback, useMemo, useRef, useReducer, createCo
 
 const Ctx = createContext(null);
 const mkid = () => "x" + Math.random().toString(36).slice(2, 10);
+const gCount = (g) => Math.max(1, Number(g?.count) || 1);
+const sumGuests = (list) => list.reduce((a, g) => a + gCount(g), 0);
+const gTypeLabel = (g) => { const c = gCount(g); if (c === 1) return "Single"; if (c === 2) return "Cuplu"; return `Familie (${c})`; };
+const gTypeIcon = (g) => { const c = gCount(g); if (c === 1) return "👤"; if (c === 2) return "👫"; return "👨‍👩‍👧"; };
 const fmtD = (d) => { try { return new Date(d).toLocaleDateString("ro-RO", { day: "numeric", month: "short", year: "numeric" }); } catch { return d; } };
 const fmtC = (n) => new Intl.NumberFormat("ro-RO", { style: "currency", currency: "EUR" }).format(n || 0);
 
@@ -107,7 +111,7 @@ async function loadAllData(userId) {
     groups: wedding.groups || ["Familie Mireasă","Familie Mire","Prieteni","Colegi"],
     tags: wedding.tags || ["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă"],
     onboarded: wedding.onboarded || false,
-    guests: (g.data || []).map(x => ({ ...x, tid: x.table_id, group: x.group })),
+    guests: (g.data || []).map(x => ({ ...x, tid: x.table_id, group: x.group, count: x.count || 1 })),
     tables: (t.data || []).map(x => ({ ...x })),
     budget: (b.data || []).map(x => ({ ...x, cat: x.category })),
     tasks: (tk.data || []).map(x => ({ ...x, prio: x.priority })),
@@ -137,7 +141,7 @@ const dbSync = {
     const { data } = await sb.from('guests').insert({
       wedding_id: weddingId, name: guest.name, group: guest.group || 'Prieteni',
       rsvp: guest.rsvp || 'pending', dietary: guest.dietary || '', tags: guest.tags || [],
-      notes: guest.notes || '', table_id: guest.tid || null,
+      notes: guest.notes || '', table_id: guest.tid || null, count: guest.count || 1,
     }).select().single();
     return data;
   },
@@ -151,6 +155,7 @@ const dbSync = {
     if (data.tags !== undefined) mapped.tags = data.tags;
     if (data.notes !== undefined) mapped.notes = data.notes;
     if (data.tid !== undefined) mapped.table_id = data.tid;
+    if (data.count !== undefined) mapped.count = data.count;
     if (Object.keys(mapped).length > 0) await sb.from('guests').update(mapped).eq('id', id);
   },
   async deleteGuest(id) { const sb = getSupabase(); if (sb) await sb.from('guests').delete().eq('id', id); },
@@ -284,6 +289,7 @@ async function saveTheme(t) {
 
 // ─── Confirm Dialog ──────────────────────────────────────────
 function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
+  useEffect(()=>{if(open){document.body.style.overflow="hidden"}return()=>{if(open)document.body.style.overflow=""}},[open]);
   if (!open) return null;
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -418,13 +424,17 @@ function openPDF(html) {
 // ─── Shared UI ───────────────────────────────────────────────
 function Card({children,style,onClick}){return <div onClick={onClick} style={{background:"var(--cd)",color:"var(--ink)",borderRadius:"var(--r)",border:"1px solid var(--bd)",boxShadow:"var(--sh)",padding:14,...style}}>{children}</div>}
 function Modal({open,onClose,title,children}){
+  useEffect(()=>{
+    if(open){document.body.style.overflow="hidden";document.body.style.position="fixed";document.body.style.width="100%";document.body.style.top=`-${window.scrollY}px`}
+    return()=>{const sy=document.body.style.top;document.body.style.overflow="";document.body.style.position="";document.body.style.width="";document.body.style.top="";if(open)window.scrollTo(0,parseInt(sy||"0")*-1)}
+  },[open]);
   if(!open)return null;
   return(<div style={{position:"fixed",inset:0,zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
     <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
-    <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"18px 16px 24px",maxHeight:"80vh",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
+    <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"18px 16px calc(24px + env(safe-area-inset-bottom,0px))",maxHeight:"85vh",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
       <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 12px",flexShrink:0}}/>
       {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,paddingBottom:12,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
-      <div style={{flex:1,overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch"}}>{children}</div>
+      <div style={{flex:1,overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",paddingBottom:8}}>{children}</div>
     </div>
   </div>);
 }
@@ -840,7 +850,7 @@ function Home() {
           { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)" },
           { l: "Așezați", v: `${seated}/${conf}`, sub: `${conf - seated} rămași`, cl: "var(--g)" },
           { l: "Tasks", v: `${Math.round((doneT / Math.max(s.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${s.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)" },
-          { l: "Total invitați", v: s.guests.length, sub: `${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)" },
+          { l: "Total invitați", v: s.guests.length, sub: `${sumGuests(s.guests)} persoane · ${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)" },
           { l: "Cost/invitat", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${conf} conf.`, cl: "var(--gd)" },
         ].map((x, i) => (
           <Card key={i} style={{ padding: "12px 10px" }}>
@@ -961,20 +971,20 @@ function Guests() {
   }, [s.guests, filter, search, tagFilter]);
 
   const grouped = useMemo(() => { const g = {}; list.forEach(x => { const k = x.group || "Altele"; if (!g[k]) g[k] = []; g[k].push(x) }); return g }, [list]);
-  const st = { total: s.guests.length, conf: s.guests.filter(g => g.rsvp === "confirmed").length, pend: s.guests.filter(g => g.rsvp === "pending").length };
+  const st = { total: s.guests.length, conf: s.guests.filter(g => g.rsvp === "confirmed").length, pend: s.guests.filter(g => g.rsvp === "pending").length, totalPpl: sumGuests(s.guests), confPpl: sumGuests(s.guests.filter(g => g.rsvp === "confirmed")), pendPpl: sumGuests(s.guests.filter(g => g.rsvp === "pending")) };
   const groupStats = useMemo(() => { const gs = {}; s.guests.forEach(g => { const k = g.group || "Altele"; gs[k] = (gs[k] || 0) + 1 }); return Object.entries(gs).map(([name, count]) => ({ name, count, pct: Math.round((count / Math.max(s.guests.length, 1)) * 100) })); }, [s.guests]);
   const allTags = useMemo(() => { const t = new Set(s.tags || []); s.guests.forEach(g => (g.tags || []).forEach(tag => t.add(tag))); return [...t]; }, [s.guests, s.tags]);
   const gCl = ["#B8956A","#8BA888","#D4A0A0","#5A82B4","#C9A032","#9A9A9A","#A088B8","#B85C5C"];
 
-  const quickAdd = () => { const n = qn.trim(); if (!n) return; d({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [] } }); setQn(""); ref.current?.focus() };
+  const quickAdd = () => { const n = qn.trim(); if (!n) return; d({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: 1 } }); setQn(""); ref.current?.focus() };
   const cycleRsvp = g => { const nx = { pending: "confirmed", confirmed: "declined", declined: "pending" }; d({ type: "UPD_GUEST", p: { id: g.id, rsvp: nx[g.rsvp] } }) };
 
   return (
     <div className="fu" style={{ padding: "0 14px 20px" }}>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-        {[{ l: "Total", v: st.total, f: "all" }, { l: "Conf.", v: st.conf, f: "confirmed" }, { l: "Aștept.", v: st.pend, f: "pending" }].map(x => (
+        {[{ l: "Total", v: st.total, ppl: st.totalPpl, f: "all" }, { l: "Conf.", v: st.conf, ppl: st.confPpl, f: "confirmed" }, { l: "Aștept.", v: st.pend, ppl: st.pendPpl, f: "pending" }].map(x => (
           <button key={x.f} onClick={() => setFilter(f => f === x.f ? "all" : x.f)} style={{ padding: "6px 12px", borderRadius: 16, fontSize: 11, fontWeight: 600, background: filter === x.f ? "var(--ink)" : "var(--cd)", color: filter === x.f ? "var(--bg)" : "var(--mt)", border: `1px solid ${filter === x.f ? "var(--ink)" : "var(--bd)"}` }}>
-            {x.l} <span style={{ fontFamily: "var(--fd)", fontSize: 14, marginLeft: 3 }}>{x.v}</span>
+            {x.l} <span style={{ fontFamily: "var(--fd)", fontSize: 14, marginLeft: 3 }}>{x.v}</span>{x.ppl !== x.v && <span style={{ fontSize: 9, opacity: .6, marginLeft: 2 }}>({x.ppl}p)</span>}
           </button>))}
         <button onClick={() => setShowStats(!showStats)} style={{ padding: "6px 10px", borderRadius: 16, fontSize: 11, fontWeight: 600, background: showStats ? "rgba(184,149,106,.1)" : "var(--cd)", color: showStats ? "var(--gd)" : "var(--mt)", border: `1px solid ${showStats ? "var(--g)" : "var(--bd)"}`, marginLeft: "auto" }}>📊</button>
       </div>
@@ -1057,11 +1067,31 @@ function GuestFormInner({ guest, onClose }) {
   const { s, d } = useContext(Ctx);
   const groups = s.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
   const allTags = s.tags || ["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă"];
-  const [f, setF] = useState(guest ? { ...guest, tags: guest.tags || [] } : { name: "", group: groups[0], rsvp: "pending", dietary: "", notes: "", tags: [] });
+  const [f, setF] = useState(guest ? { ...guest, tags: guest.tags || [], count: guest.count || 1 } : { name: "", group: groups[0], rsvp: "pending", dietary: "", notes: "", tags: [], count: 1 });
   const u = k => v => setF(x => ({ ...x, [k]: v }));
   const toggleTag = t => setF(x => ({ ...x, tags: x.tags.includes(t) ? x.tags.filter(v => v !== t) : [...x.tags, t] }));
+  const presets = [{l:"Single",v:1,ic:"👤"},{l:"Cuplu",v:2,ic:"👫"},{l:"Familie (3)",v:3,ic:"👨‍👩‍👧"},{l:"Familie (4)",v:4,ic:"👨‍👩‍👧‍👦"}];
   return <>
-    <Fld label="Nume" value={f.name} onChange={u("name")} />
+    <Fld label="Nume invitat / familie" value={f.name} onChange={u("name")} placeholder="Maria & Ion Popescu" />
+    <div style={{marginBottom:12}}>
+      <label style={{display:"block",fontSize:10,fontWeight:700,color:"var(--mt)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5}}>Număr persoane</label>
+      <div style={{display:"flex",gap:6,marginBottom:6}}>
+        {presets.map(p=>(
+          <button key={p.v} onClick={()=>u("count")(p.v)} style={{flex:1,padding:"8px 4px",borderRadius:10,fontSize:11,fontWeight:600,textAlign:"center",background:f.count===p.v?"var(--gd)":"var(--cr)",color:f.count===p.v?"#fff":"var(--gr)",border:`1.5px solid ${f.count===p.v?"var(--gd)":"var(--bd)"}`,transition:"all .15s"}}>
+            <div style={{fontSize:16,marginBottom:2}}>{p.ic}</div>{p.l}
+          </button>
+        ))}
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <span style={{fontSize:11,color:"var(--mt)"}}>Sau personalizat:</span>
+        <div style={{display:"flex",alignItems:"center",gap:4}}>
+          <button onClick={()=>u("count")(Math.max(1,f.count-1))} style={{width:28,height:28,borderRadius:8,background:"var(--cr)",border:"1px solid var(--bd)",fontSize:14,fontWeight:700,color:"var(--gd)",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+          <span style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:600,minWidth:24,textAlign:"center"}}>{f.count}</span>
+          <button onClick={()=>u("count")(Math.min(12,f.count+1))} style={{width:28,height:28,borderRadius:8,background:"var(--cr)",border:"1px solid var(--bd)",fontSize:14,fontWeight:700,color:"var(--gd)",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+          <span style={{fontSize:11,color:"var(--mt)",marginLeft:4}}>{f.count===1?"persoană":"persoane"}</span>
+        </div>
+      </div>
+    </div>
     <Fld label="Grup" value={f.group} onChange={u("group")} options={groups} />
     <Fld label="RSVP" value={f.rsvp} onChange={u("rsvp")} options={[{ value: "pending", label: "Așteptare" }, { value: "confirmed", label: "Confirmat" }, { value: "declined", label: "Refuzat" }]} />
     <Fld label="Restricții alimentare" value={f.dietary} onChange={u("dietary")} placeholder="vegetarian, vegan..." />
@@ -1086,7 +1116,7 @@ function SeatedGuestRow({ g, table, isMoving, setMovingGuest, moveGuest, unseat,
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 14, fontSize: 12, fontWeight: 500, background: isMoving ? "rgba(184,149,106,.08)" : "var(--cr)", border: `1px solid ${isMoving ? "var(--g)" : "var(--bd)"}` }}>
         <span style={{ flex: 1, display: "flex", alignItems: "center", gap: 4 }}>
-          {g.name}
+          {g.name}{gCount(g)>1&&<span style={{fontSize:8,padding:"1px 4px",borderRadius:6,background:"rgba(184,149,106,.12)",color:"var(--gd)",fontWeight:700}}>×{gCount(g)}</span>}
           {g.dietary && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--er)", flexShrink: 0 }} title={g.dietary} />}
           {(g.tags||[]).includes("Copil") && <span style={{ fontSize: 10 }} title="Vine cu copil">👶</span>}
           {(g.tags||[]).includes("Vegetarian") && <span style={{ fontSize: 10 }} title="Vegetarian">🌱</span>}
@@ -1107,7 +1137,7 @@ function SeatedGuestRow({ g, table, isMoving, setMovingGuest, moveGuest, unseat,
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: "6px 4px", marginTop: 2 }}>
           <span style={{ fontSize: 10, color: "var(--mt)", alignSelf: "center", marginRight: 2 }}>Mută la:</span>
           {allTables.filter(t => t.id !== table.id).map(t => {
-            const cnt = gAt(t.id).length;
+            const cnt = gAt(t.id).reduce((a, g) => a + gCount(g), 0);
             const full = cnt >= t.seats;
             return (
               <button key={t.id} disabled={full} onClick={() => moveGuest(g.id, t.id)} style={{
@@ -1140,8 +1170,8 @@ function TablesList() {
 
   const unassigned = useMemo(() => s.guests.filter(g => !g.tid && g.rsvp === "confirmed"), [s.guests]);
   const gAt = useCallback(tid => s.guests.filter(g => g.tid === tid), [s.guests]);
-  const totalSeats = s.tables.reduce((a, t) => a + t.seats, 0);
-  const totalSeated = s.guests.filter(g => g.tid).length;
+  const totalSeats = s.tables.reduce((a, t) => a + t.seats, 0); // seats = person capacity
+  const totalSeated = sumGuests(s.guests.filter(g => g.tid));
 
   const toggle = tid => setExpanded(e => ({ ...e, [tid]: !e[tid] }));
   const seat = (gid, tid) => d({ type: "SEAT", p: { gid, tid } });
@@ -1188,7 +1218,8 @@ function TablesList() {
 
       {s.tables.map(table => {
         const seated = gAt(table.id);
-        const free = table.seats - seated.length;
+        const seatedPersons = seated.reduce((a, g) => a + gCount(g), 0);
+        const free = table.seats - seatedPersons;
         const isFull = free <= 0;
         const isOpen = expanded[table.id];
         const isPicking = pickingFor === table.id;
@@ -1233,7 +1264,7 @@ function TablesList() {
                 {avail.length === 0 ? <div style={{ fontSize: 11, color: "var(--mt)", textAlign: "center", padding: 8 }}>Toți invitații sunt așezați</div>
                   : <div style={{ maxHeight: 160, overflow: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
                     {avail.map(g => (
-                      <button key={g.id} onClick={() => { seat(g.id, table.id); if (seated.length + 1 >= table.seats) setPickingFor(null) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, background: "var(--cd)", border: "1px solid var(--bd)", textAlign: "left" }}>
+                      <button key={g.id} onClick={() => { seat(g.id, table.id); if (seatedPersons + gCount(g) >= table.seats) setPickingFor(null) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, background: "var(--cd)", border: "1px solid var(--bd)", textAlign: "left" }}>
                         <div style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--cr2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "var(--gd)", flexShrink: 0 }}>{g.name[0]}</div>
                         <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 600 }}>{g.name}</div><div style={{ fontSize: 10, color: "var(--mt)" }}>{g.group}{g.dietary ? ` · ${g.dietary}` : ""}</div></div>
                         <span style={{ color: "var(--g)", fontSize: 11, fontWeight: 600 }}>+ Adaugă</span>
