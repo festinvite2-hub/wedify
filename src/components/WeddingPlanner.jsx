@@ -455,10 +455,15 @@ function Modal({open,onClose,title,children}){
   const overlayRef=useRef(null);
   useEffect(()=>{
     if(!open)return;
-    const el=overlayRef.current;if(!el)return;
-    const stop=e=>{const sc=el.querySelector('[data-ms]');if(sc&&sc.contains(e.target))return;e.preventDefault()};
-    el.addEventListener('touchmove',stop,{passive:false});
-    return()=>el.removeEventListener('touchmove',stop);
+    const prevBodyOverflow=document.body.style.overflow;
+    const prevRootOverflow=document.getElementById("root")?.style.overflow;
+    document.body.style.overflow="hidden";
+    const rootEl=document.getElementById("root");
+    if(rootEl)rootEl.style.overflow="hidden";
+    return()=>{
+      document.body.style.overflow=prevBodyOverflow;
+      if(rootEl&&prevRootOverflow!==undefined)rootEl.style.overflow=prevRootOverflow;
+    };
   },[open]);
   if(!open||typeof document==="undefined")return null;
   return createPortal(
