@@ -2731,10 +2731,10 @@ export default function App() {
   // ── Loading screen ──
   if (authLoading || dataLoading) {
     return (
-      <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle at 12% 8%,rgba(184,149,106,.16),transparent 35%), radial-gradient(circle at 86% 90%,rgba(184,149,106,.14),transparent 40%), linear-gradient(155deg,#171513,#241E19,#171513)", padding: "24px" }}>
-        <div style={{ width: "100%", maxWidth: 420, borderRadius: 24, border: "1px solid rgba(255,255,255,.08)", background: "rgba(17,16,14,.38)", backdropFilter: "blur(20px)", padding: "34px 24px", display: "flex", flexDirection: "column", alignItems: "center", boxShadow: "0 20px 60px rgba(0,0,0,.38)" }}>
-          <img src={LOGO_SM} alt="Wedify" style={{ width: 118, height: 118, objectFit: "contain", marginBottom: 16, filter: "drop-shadow(0 8px 18px rgba(0,0,0,.45))" }} />
-          <div style={{ width: 30, height: 30, border: "2px solid rgba(184,149,106,.28)", borderTopColor: "var(--g)", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
+      <div style={{ minHeight: "100svh", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle at 12% 8%,rgba(184,149,106,.16),transparent 35%), radial-gradient(circle at 86% 90%,rgba(184,149,106,.14),transparent 40%), linear-gradient(155deg,#171513,#241E19,#171513)", padding: "24px 18px", boxSizing: "border-box", overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", maxWidth: 420 }}>
+          <img src={LOGO_SM} alt="Wedify" style={{ width: "min(54vw, 220px)", height: "min(54vw, 220px)", objectFit: "contain", marginBottom: 22, filter: "drop-shadow(0 10px 24px rgba(0,0,0,.48))" }} />
+          <div style={{ width: 34, height: 34, border: "2px solid rgba(184,149,106,.28)", borderTopColor: "var(--g)", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
           <p style={{ marginTop: 12, fontSize: 13, color: "rgba(255,255,255,.72)", letterSpacing: ".02em" }}>Se încarcă...</p>
         </div>
       </div>
