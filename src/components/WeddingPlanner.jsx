@@ -455,10 +455,15 @@ function Modal({open,onClose,title,children}){
   const overlayRef=useRef(null);
   useEffect(()=>{
     if(!open)return;
-    const el=overlayRef.current;if(!el)return;
-    const stop=e=>{const sc=el.querySelector('[data-ms]');if(sc&&sc.contains(e.target))return;e.preventDefault()};
-    el.addEventListener('touchmove',stop,{passive:false});
-    return()=>el.removeEventListener('touchmove',stop);
+    const prevBodyOverflow=document.body.style.overflow;
+    const prevRootOverflow=document.getElementById("root")?.style.overflow;
+    document.body.style.overflow="hidden";
+    const rootEl=document.getElementById("root");
+    if(rootEl)rootEl.style.overflow="hidden";
+    return()=>{
+      document.body.style.overflow=prevBodyOverflow;
+      if(rootEl&&prevRootOverflow!==undefined)rootEl.style.overflow=prevRootOverflow;
+    };
   },[open]);
   if(!open||typeof document==="undefined")return null;
   return createPortal(
@@ -2021,7 +2026,7 @@ function Onboarding({ onComplete }) {
     <div style={{ height: "100vh", width: "100%", display: "flex", flexDirection: "column", background: "linear-gradient(155deg,#1A1A1A,#28221C,#1A1A1A)", overflow: "hidden" }}>
       <div style={{ position: "absolute", top: -50, right: -50, width: 180, height: 180, background: "radial-gradient(circle,rgba(184,149,106,.12),transparent 70%)", borderRadius: "50%" }} />
       <div style={{ flex: "0 0 auto", padding: "48px 28px 0", textAlign: "center", position: "relative", zIndex: 1 }}>
-        <img src={LOGO_SM} alt="Wedify" style={{ width: 80, height: 80, objectFit: "contain", marginBottom: 8 }} />
+        <LogoNoBlack alt="Wedify" style={{ width: 80, height: 80, objectFit: "contain", marginBottom: 8 }} />
         <h1 style={{ fontFamily: "var(--fd)", fontSize: 26, fontWeight: 400, color: "var(--gl)", marginBottom: 4 }}>Bine ai venit!</h1>
         <p style={{ fontSize: 12, color: "rgba(255,255,255,.3)" }}>Hai să configurăm nunta ta în 3 pași simpli</p>
       </div>
