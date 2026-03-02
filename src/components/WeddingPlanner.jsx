@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useReducer, createContext, useContext } from "react";
+import { createPortal } from "react-dom";
 
 // ═══════════════════════════════════════════════════════════════
 // WEDIFY v1.0 — Wedding Organizer | Rebranded from Wedify v14
@@ -12,8 +13,31 @@ const gTypeLabel = (g) => { const c = gCount(g); if (c === 1) return "Single"; i
 const gTypeIcon = (g) => { const c = gCount(g); if (c === 1) return "👤"; if (c === 2) return "👫"; return "👨‍👩‍👧"; };
 const fmtD = (d) => { try { return new Date(d).toLocaleDateString("ro-RO", { day: "numeric", month: "short", year: "numeric" }); } catch { return d; } };
 const fmtC = (n) => new Intl.NumberFormat("ro-RO", { style: "currency", currency: "EUR" }).format(n || 0);
+const PAY_TAG = "<!--WEDIFY_PAYMENTS:";
+const parseBudgetNotes = (raw) => {
+  const txt = raw || "";
+  const i = txt.indexOf(PAY_TAG);
+  if (i < 0) return { cleanNotes: txt, payments: [] };
+  const j = txt.indexOf("-->", i);
+  if (j < 0) return { cleanNotes: txt, payments: [] };
+  const payload = txt.slice(i + PAY_TAG.length, j).trim();
+  let payments = [];
+  try {
+    const decoded = decodeURIComponent(payload);
+    const parsed = JSON.parse(decoded);
+    if (Array.isArray(parsed)) payments = parsed;
+  } catch {}
+  const cleanNotes = (txt.slice(0, i) + txt.slice(j + 3)).trim();
+  return { cleanNotes, payments };
+};
+const serializeBudgetNotes = (cleanNotes, payments) => {
+  const base = (cleanNotes || "").trim();
+  if (!payments || payments.length === 0) return base;
+  const packed = encodeURIComponent(JSON.stringify(payments));
+  return `${base}${base ? "\n\n" : ""}${PAY_TAG}${packed}-->`;
+};
 
-const LOGO_SM = "data:image/png;base64,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";
+const LOGO_SM = "/wedify-logo.png";
 const LOGO_XS = "data:image/png;base64,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";
 
 const CSS = `
@@ -107,6 +131,9 @@ async function loadAllData(userId) {
     wedding: {
       couple: wedding.couple || '', date: wedding.date || '', venue: wedding.venue || '',
       budget: Number(wedding.budget) || 15000,
+      guestTarget: Math.max(1, Number(wedding.guest_target) || Number(wedding.guestTarget) || 100),
+      program: Array.isArray(wedding.program) ? wedding.program : [],
+      theme: wedding.theme || '',
     },
     weddingId: wedding.id,
     groups: wedding.groups || ["Familie Mireasă","Familie Mire","Prieteni","Colegi"],
@@ -114,7 +141,7 @@ async function loadAllData(userId) {
     onboarded: wedding.onboarded || false,
     guests: (g.data || []).map(x => ({ ...x, tid: x.table_id, group: x.group, count: x.count || 1 })),
     tables: (t.data || []).map(x => ({ ...x })),
-    budget: (b.data || []).map(x => ({ ...x, cat: x.category })),
+    budget: (b.data || []).map(x => { const parsed = parseBudgetNotes(x.notes || ""); return { ...x, cat: x.category, notes: parsed.cleanNotes, payments: parsed.payments || [] }; }),
     tasks: (tk.data || []).map(x => ({ ...x, prio: x.priority })),
     vendors: (v.data || []),
     activity: [{ id: mkid(), msg: "Date încărcate", ts: new Date().toISOString() }],
@@ -135,6 +162,7 @@ const dbSync = {
     if (data.onboarded !== undefined) mapped.onboarded = data.onboarded;
     if (data.program !== undefined) mapped.program = data.program;
     if (data.theme !== undefined) mapped.theme = data.theme;
+    if (data.guestTarget !== undefined) mapped.guest_target = Math.max(1, Number(data.guestTarget) || 1);
     if (Object.keys(mapped).length > 0) await sb.from('weddings').update(mapped).eq('id', weddingId);
   },
   async addGuest(weddingId, guest) {
@@ -422,7 +450,7 @@ function openPDF(html) {
 }
 
 // ─── Shared UI ───────────────────────────────────────────────
-function Card({children,style,onClick}){return <div onClick={onClick} style={{background:"var(--cd)",color:"var(--ink)",borderRadius:"var(--r)",border:"1px solid var(--bd)",boxShadow:"var(--sh)",padding:14,...style}}>{children}</div>}
+function Card({children,style,onClick,...props}){return <div onClick={onClick} {...props} style={{background:"var(--cd)",color:"var(--ink)",borderRadius:"var(--r)",border:"1px solid var(--bd)",boxShadow:"var(--sh)",padding:14,...style}}>{children}</div>}
 function Modal({open,onClose,title,children}){
   const overlayRef=useRef(null);
   useEffect(()=>{
@@ -432,15 +460,18 @@ function Modal({open,onClose,title,children}){
     el.addEventListener('touchmove',stop,{passive:false});
     return()=>el.removeEventListener('touchmove',stop);
   },[open]);
-  if(!open)return null;
-  return(<div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,display:"flex",flexDirection:"column",justifyContent:"flex-end",touchAction:"none"}}>
-    <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
-    <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"88vh",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
-      <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
-      {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,paddingBottom:10,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
-      <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:10}}>{children}</div>
-    </div>
-  </div>);
+  if(!open||typeof document==="undefined")return null;
+  return createPortal(
+    <div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,height:"100dvh",display:"flex",flexDirection:"column",justifyContent:"flex-end",overscrollBehavior:"contain"}}>
+      <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
+      <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"calc(100dvh - 8px)",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
+        <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
+        {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,paddingBottom:10,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
+        <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:12}}>{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
 }
 function Btn({children,v="primary",onClick,style,disabled,full}){
   const m={primary:{background:"linear-gradient(135deg,var(--g),var(--gd))",color:"#fff",fontWeight:600,boxShadow:"0 3px 12px rgba(184,149,106,.25)"},secondary:{background:"var(--cr)",color:"var(--ink)",border:"1px solid var(--bd)"},danger:{background:"rgba(184,92,92,.08)",color:"var(--er)"},ghost:{background:"transparent",color:"var(--gd)"}};
@@ -457,7 +488,6 @@ function Fld({label,value,onChange,type="text",placeholder,options}){
 }
 function Badge({children,c="gold"}){const m={gold:{b:"rgba(184,149,106,.1)",c:"var(--gd)"},green:{b:"rgba(107,158,104,.1)",c:"var(--ok)"},red:{b:"rgba(184,92,92,.08)",c:"var(--er)"},blue:{b:"rgba(90,130,180,.1)",c:"#5A82B4"},gray:{b:"rgba(160,160,160,.08)",c:"var(--mt)"},rose:{b:"rgba(212,160,160,.12)",c:"#B07070"}};const s=m[c]||m.gold;return <span style={{display:"inline-flex",padding:"2px 8px",borderRadius:12,fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",background:s.b,color:s.c}}>{children}</span>}
 function Stars({v,onChange}){return <div style={{display:"flex",gap:2}}>{[1,2,3,4,5].map(i=><button key={i} onClick={()=>onChange?.(i)} style={{padding:1,color:i<=v?"var(--g)":"var(--ft)"}}>{i<=v?ic.star:ic.starO}</button>)}</div>}
-
 // ─── AUTH ────────────────────────────────────────────────────
 // ─── Auth Screen (Supabase production) ───────────────────────
 function AuthScreen({onLogin}){
@@ -524,18 +554,19 @@ function AuthScreen({onLogin}){
     setMode("forgot_sent");
   };
 
-  const inp={width:"100%",padding:"13px 14px",borderRadius:12,background:"rgba(255,255,255,.06)",border:"1px solid rgba(255,255,255,.1)",color:"#fff",fontSize:15,marginBottom:10};
-  const mBtn={width:"100%",padding:14,borderRadius:12,background:loading?"rgba(184,149,106,.5)":"linear-gradient(135deg,var(--g),var(--gd))",color:"#fff",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8};
+  const inp={width:"100%",padding:"14px 16px",borderRadius:14,background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.15)",color:"#fff",fontSize:15,marginBottom:10,backdropFilter:"blur(4px)"};
+  const mBtn={width:"100%",padding:15,borderRadius:14,background:loading?"rgba(184,149,106,.55)":"linear-gradient(135deg,var(--g),var(--gd))",color:"#fff",fontSize:15,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxShadow:"0 8px 26px rgba(0,0,0,.22)"};
   const spin=<div style={{width:16,height:16,border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin .5s linear infinite"}}/>;
 
   return(
-    <div style={{height:"100vh",width:"100%",display:"flex",flexDirection:"column",background:"linear-gradient(155deg,#1A1A1A,#28221C,#1A1A1A)",overflow:"auto",opacity:ready?1:0,transition:"opacity .7s"}}>
-      <div style={{position:"absolute",top:-50,right:-50,width:180,height:180,background:"radial-gradient(circle,rgba(184,149,106,.12),transparent 70%)",borderRadius:"50%"}}/>
-      <div style={{flex:"0 0 auto",padding:"50px 28px 0",textAlign:"center",position:"relative",zIndex:1}}>
-        <img src={LOGO_SM} alt="Wedify" style={{width:120,height:120,objectFit:"contain",marginBottom:6}} />
+    <div style={{minHeight:"100dvh",width:"100%",display:"flex",flexDirection:"column",background:"radial-gradient(circle at 12% 8%,rgba(184,149,106,.16),transparent 35%), radial-gradient(circle at 88% 95%,rgba(184,149,106,.14),transparent 38%), linear-gradient(155deg,#171513,#241E19,#171513)",overflow:"auto",opacity:ready?1:0,transition:"opacity .7s"}}>
+      <div style={{position:"absolute",top:-60,right:-70,width:240,height:240,background:"radial-gradient(circle,rgba(184,149,106,.16),transparent 70%)",borderRadius:"50%"}}/>
+      <div style={{position:"absolute",bottom:-70,left:-80,width:260,height:260,background:"radial-gradient(circle,rgba(184,149,106,.12),transparent 72%)",borderRadius:"50%"}}/>
+      <div style={{flex:"0 0 auto",padding:"46px 28px 0",textAlign:"center",position:"relative",zIndex:1}}>
+        <img src={LOGO_SM} alt="Wedify" style={{width:132,height:132,objectFit:"contain",marginBottom:6,filter:"drop-shadow(0 8px 18px rgba(0,0,0,.45))"}} />
       </div>
-      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"20px 22px",position:"relative",zIndex:1}}>
-        <div style={{background:"rgba(255,255,255,.035)",backdropFilter:"blur(16px)",borderRadius:18,padding:"24px 20px",border:"1px solid rgba(255,255,255,.05)"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"20px 22px 26px",position:"relative",zIndex:1}}>
+        <div style={{width:"100%",maxWidth:760,margin:"0 auto",background:"rgba(17,16,14,.42)",backdropFilter:"blur(18px)",borderRadius:24,padding:"28px 24px",border:"1px solid rgba(255,255,255,.08)",boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
 
           {mode==="login"&&<>
             <h2 style={{fontFamily:"var(--fd)",fontSize:20,color:"#fff",textAlign:"center",marginBottom:20}}>Conectare</h2>
@@ -544,8 +575,8 @@ function AuthScreen({onLogin}){
             {err&&<div style={{padding:"8px 12px",borderRadius:10,marginBottom:10,background:"rgba(184,92,92,.12)",color:"#E88",fontSize:12,animation:"shake .3s"}}>{err}</div>}
             <button onClick={doLogin} disabled={loading} style={mBtn}>{loading&&spin}Intră</button>
             <div style={{display:"flex",justifyContent:"space-between",marginTop:14}}>
-              <button onClick={()=>{setMode("forgot");setErr("")}} style={{fontSize:11,color:"rgba(255,255,255,.4)"}}>Am uitat parola</button>
-              <button onClick={()=>{setMode("register");setErr("");setPass("");setPass2("")}} style={{fontSize:12,color:"var(--gl)",opacity:.6}}>Creează cont →</button>
+              <button onClick={()=>{setMode("forgot");setErr("")}} style={{fontSize:12,color:"rgba(255,255,255,.65)"}}>Am uitat parola</button>
+              <button onClick={()=>{setMode("register");setErr("");setPass("");setPass2("")}} style={{fontSize:12,color:"var(--gl)",opacity:.9,fontWeight:600}}>Creează cont →</button>
             </div>
           </>}
 
@@ -648,6 +679,7 @@ function SettingsModal({open,onClose}){
     <Fld label="Data nunții" value={f.date} onChange={u("date")} type="date"/>
     <Fld label="Locația" value={f.venue} onChange={u("venue")} placeholder="Palatul Mogoșoaia"/>
     <Fld label="Buget total (€)" value={f.budget} onChange={v=>u("budget")(parseFloat(v)||0)} type="number"/>
+    <Fld label="Invitați estimați (țintă)" value={f.guestTarget ?? 100} onChange={v=>u("guestTarget")(Math.max(1, parseInt(v || "0", 10) || 1))} type="number"/>
     
     <div style={{marginBottom:14}}>
       <label style={{display:"block",fontSize:10,fontWeight:700,color:"var(--mt)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>Grupuri invitați</label>
@@ -701,7 +733,7 @@ function SettingsModal({open,onClose}){
 // DATA + REDUCER
 // ═══════════════════════════════════════════════════════════════
 const DATA = {
-  wedding:{couple:"Alexandra & Mihai",date:"2026-09-12",venue:"Palatul Mogoșoaia",budget:25000},
+  wedding:{couple:"Alexandra & Mihai",date:"2026-09-12",venue:"Palatul Mogoșoaia",budget:25000,guestTarget:120,program:[],theme:""},
   groups:["Familie Mireasă","Familie Mire","Prieteni","Colegi"],
   tags:["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă","Vegetarian","Plus one"],
   onboarded: true,
@@ -727,12 +759,12 @@ const DATA = {
     {id:"t4",name:"Masa 3",seats:10,shape:"rectangular",notes:""},
   ],
   budget:[
-    {id:"b1",cat:"Locație",planned:5000,spent:4500,vendor:"Palatul Mogoșoaia",status:"paid",notes:""},
-    {id:"b2",cat:"Catering",planned:8000,spent:3000,vendor:"Chef's Table",status:"partial",notes:""},
-    {id:"b3",cat:"Fotograf",planned:2500,spent:1000,vendor:"ArtStudio",status:"partial",notes:""},
-    {id:"b4",cat:"Muzică",planned:2000,spent:0,vendor:"",status:"unpaid",notes:""},
-    {id:"b5",cat:"Floristică",planned:1500,spent:1500,vendor:"Flora Design",status:"paid",notes:""},
-    {id:"b6",cat:"Rochie",planned:3000,spent:2800,vendor:"Bridal House",status:"paid",notes:""},
+    {id:"b1",cat:"Locație",planned:5000,spent:4500,vendor:"Palatul Mogoșoaia",status:"paid",notes:"",payments:[]},
+    {id:"b2",cat:"Catering",planned:8000,spent:3000,vendor:"Chef's Table",status:"partial",notes:"",payments:[]},
+    {id:"b3",cat:"Fotograf",planned:2500,spent:1000,vendor:"ArtStudio",status:"partial",notes:"",payments:[]},
+    {id:"b4",cat:"Muzică",planned:2000,spent:0,vendor:"",status:"unpaid",notes:"",payments:[]},
+    {id:"b5",cat:"Floristică",planned:1500,spent:1500,vendor:"Flora Design",status:"paid",notes:"",payments:[]},
+    {id:"b6",cat:"Rochie",planned:3000,spent:2800,vendor:"Bridal House",status:"paid",notes:"",payments:[]},
   ],
   tasks:[
     {id:"tk1",title:"Confirmă meniu final",due:"2026-08-01",status:"pending",prio:"high",cat:"Catering"},
@@ -788,6 +820,7 @@ function reducer(s, a) {
     case "ADD_TABLE": return { ...s, tables: [...s.tables, p], activity: log(`${p.name} creată`) };
     case "UPD_TABLE": return { ...s, tables: s.tables.map(t => t.id === p.id ? { ...t, ...p } : t), activity: log(`Masă actualizată`) };
     case "DEL_TABLE": return { ...s, tables: s.tables.filter(t => t.id !== p), guests: s.guests.map(g => g.tid === p ? { ...g, tid: null } : g), activity: log(`Masă ștearsă`) };
+    case "REORDER_TABLES": return { ...s, tables: p, activity: log("Ordine mese actualizată") };
     case "SEAT": { const g = s.guests.find(x => x.id === p.gid); const t = s.tables.find(x => x.id === p.tid); return { ...s, guests: s.guests.map(x => x.id === p.gid ? { ...x, tid: p.tid } : x), activity: log(`${g?.name} → ${t?.name}`) }; }
     case "UNSEAT": { const g = s.guests.find(x => x.id === p); return { ...s, guests: s.guests.map(x => x.id === p ? { ...x, tid: null } : x), activity: log(`${g?.name} scos de la masă`) }; }
     case "MOVE_SEAT": { const g = s.guests.find(x => x.id === p.gid); const t = s.tables.find(x => x.id === p.tid); return { ...s, guests: s.guests.map(x => x.id === p.gid ? { ...x, tid: p.tid } : x), activity: log(`${g?.name} mutat → ${t?.name}`) }; }
@@ -807,35 +840,45 @@ function reducer(s, a) {
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 function Home() {
-  const { s, setShowSettings } = useContext(Ctx);
+  const { s, setShowSettings, setTab } = useContext(Ctx);
   const days = Math.max(0, Math.ceil((new Date(s.wedding.date) - new Date()) / 864e5));
   const conf = s.guests.filter(g => g.rsvp === "confirmed").length;
   const pend = s.guests.filter(g => g.rsvp === "pending").length;
   const decl = s.guests.filter(g => g.rsvp === "declined").length;
+  const confPpl = sumGuests(s.guests.filter(g => g.rsvp === "confirmed"));
   const tP = s.budget.reduce((a, b) => a + b.planned, 0);
   const tS = s.budget.reduce((a, b) => a + b.spent, 0);
   const bP = tP > 0 ? Math.round((tS / tP) * 100) : 0;
   const doneT = s.tasks.filter(t => t.status === "done").length;
   const seated = s.guests.filter(g => g.tid).length;
+  const seatedConfPpl = sumGuests(s.guests.filter(g => g.tid && g.rsvp === "confirmed"));
   const urgent = s.tasks.filter(t => t.prio === "high" && t.status !== "done");
   const overdue = s.tasks.filter(t => new Date(t.due) < new Date() && t.status !== "done").length;
   const paidC = s.budget.filter(b => b.status === "paid").length;
   const partC = s.budget.filter(b => b.status === "partial").length;
   const unpC = s.budget.filter(b => b.status === "unpaid").length;
-  const costPerGuest = conf > 0 ? Math.round(tP / conf) : 0;
+  const costPerGuest = confPpl > 0 ? Math.round(tP / confPpl) : 0;
+  const unseatedConfPpl = Math.max(confPpl - seatedConfPpl, 0);
+  const todaysActions = [
+    overdue > 0 && { id: "overdue", title: `Rezolvă ${overdue} task-uri depășite`, hint: "Deschide timeline-ul", tab: "tasks", c: "var(--er)" },
+    unseatedConfPpl > 0 && { id: "seating", title: `Alocă ${unseatedConfPpl} persoane la mese`, hint: "Finalizează planul de mese", tab: "tables", c: "var(--g)" },
+    pend > 0 && { id: "rsvp", title: `Urmărește ${pend} RSVP în așteptare`, hint: "Sună / trimite reminder", tab: "guests", c: "#5A82B4" },
+    unpC > 0 && { id: "budget", title: `${unpC} categorii sunt neplătite`, hint: "Verifică bugetul", tab: "budget", c: "var(--wn)" },
+  ].filter(Boolean).slice(0, 3);
 
   return (
-    <div className="fu" style={{ padding: "0 14px 20px" }}>
+    <div className="fu" style={{ padding: "4px 14px 24px" }}>
       {/* Hero */}
-      <div style={{ background: "linear-gradient(150deg,#1A1A1A,#28221C,#1A1A1A)", borderRadius: "var(--r)", padding: "22px 18px", marginBottom: 12, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -30, right: -30, width: 140, height: 140, background: "radial-gradient(circle,rgba(184,149,106,.12),transparent 70%)", borderRadius: "50%" }} />
-        <button onClick={() => setShowSettings(true)} style={{ position: "absolute", top: 12, right: 12, padding: 5, color: "rgba(255,255,255,.3)", zIndex: 2 }}>{ic.edit}</button>
+      <div style={{ background: "linear-gradient(145deg,var(--cd),var(--cr))", borderRadius: "var(--r)", padding: "18px 16px", marginBottom: 12, position: "relative", overflow: "hidden", border: "1px solid var(--bd)", boxShadow: "var(--sh)" }}>
+        <div style={{ position: "absolute", top: -45, right: -35, width: 150, height: 150, background: "radial-gradient(circle,rgba(184,149,106,.2),transparent 70%)", borderRadius: "50%" }} />
+        <button onClick={() => setShowSettings(true)} style={{ position: "absolute", top: 10, right: 10, padding: 5, color: "var(--mt)", zIndex: 2 }}>{ic.edit}</button>
         <div style={{ position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}><span style={{ color: "var(--g)" }}>{ic.heart}</span><span style={{ fontSize: 9, color: "var(--gl)", textTransform: "uppercase", letterSpacing: ".15em", fontWeight: 700 }}>Countdown</span></div>
-          <div style={{ fontFamily: "var(--fd)", fontSize: 48, fontWeight: 400, color: "var(--gl)", lineHeight: 1 }}>{days}</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,.35)", marginBottom: 10 }}>zile rămase</div>
-          <div style={{ fontSize: 15, color: "#fff", fontWeight: 600 }}>{s.wedding.couple}</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,.35)", marginTop: 1 }}>{fmtD(s.wedding.date)} · {s.wedding.venue}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}><span style={{ color: "var(--g)" }}>{ic.heart}</span><span style={{ fontSize: 9, color: "var(--gd)", textTransform: "uppercase", letterSpacing: ".15em", fontWeight: 700 }}>Countdown</span></div>
+          <div style={{ fontFamily: "var(--fd)", fontSize: 44, fontWeight: 500, color: "var(--gd)", lineHeight: 1 }}>{days}</div>
+          <div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>zile rămase</div>
+          <div style={{ fontSize: 15, color: "var(--ink)", fontWeight: 600 }}>{s.wedding.couple}</div>
+          <div style={{ fontSize: 11, color: "var(--gr)", marginTop: 2 }}>{fmtD(s.wedding.date)} · {s.wedding.venue}</div>
+          <div style={{ fontSize: 10, color: "var(--mt)", marginTop: 4 }}>Țintă invitați: {Math.max(1, Number(s.wedding.guestTarget) || 100)}</div>
         </div>
       </div>
 
@@ -851,19 +894,33 @@ function Home() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
         {[
-          { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)" },
-          { l: "Așezați", v: `${seated}/${conf}`, sub: `${conf - seated} rămași`, cl: "var(--g)" },
-          { l: "Tasks", v: `${Math.round((doneT / Math.max(s.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${s.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)" },
-          { l: "Total invitați", v: s.guests.length, sub: `${sumGuests(s.guests)} persoane · ${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)" },
-          { l: "Cost/invitat", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${conf} conf.`, cl: "var(--gd)" },
+          { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)", tab: "guests" },
+          { l: "Așezați", v: `${seatedConfPpl}/${confPpl}`, sub: `${Math.max(confPpl - seatedConfPpl, 0)} rămași`, cl: "var(--g)", tab: "tables" },
+          { l: "Tasks", v: `${Math.round((doneT / Math.max(s.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${s.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)", tab: "tasks" },
+          { l: "Total invitați", v: s.guests.length, sub: `${sumGuests(s.guests)} persoane · ${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)", tab: "guests" },
+          { l: "Cost/persoană", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${confPpl} pers. confirmate`, cl: "var(--gd)", tab: "budget" },
         ].map((x, i) => (
-          <Card key={i} style={{ padding: "12px 10px" }}>
+          <Card key={i} onClick={() => setTab(x.tab)} style={{ padding: "12px 10px", cursor: "pointer" }}>
             <div style={{ fontSize: 9, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 700, marginBottom: 5 }}>{x.l}</div>
             <div style={{ fontFamily: "var(--fd)", fontSize: 26, fontWeight: 500, color: x.cl, lineHeight: 1.1 }}>{x.v}</div>
             <div style={{ fontSize: 10, color: "var(--mt)", marginTop: 1 }}>{x.sub}</div>
           </Card>
         ))}
       </div>
+
+      {todaysActions.length > 0 && <Card style={{ marginBottom: 12, padding: 12 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 8 }}>Ce să faci azi</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          {todaysActions.map(a => <button key={a.id} onClick={() => setTab(a.tab)} style={{ textAlign: "left", padding: "9px 10px", borderRadius: 10, border: "1px solid var(--bd)", background: "var(--cr)", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: a.c, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>{a.title}</div>
+              <div style={{ fontSize: 10, color: "var(--mt)" }}>{a.hint}</div>
+            </div>
+            <span style={{ fontSize: 11, color: "var(--gd)", fontWeight: 700 }}>→</span>
+          </button>)}
+        </div>
+      </Card>}
 
       {/* Budget dashboard — ENHANCED */}
       <Card style={{ marginBottom: 12, padding: 16 }}>
@@ -960,6 +1017,8 @@ function Guests() {
   const [editing, setEditing] = useState(null);
   const [qn, setQn] = useState("");
   const [qg, setQg] = useState(s.groups?.[0] || "Prieteni");
+  const [qType, setQType] = useState("single");
+  const [qFamilySize, setQFamilySize] = useState(3);
   const [confirmDel, setConfirmDel] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -980,7 +1039,8 @@ function Guests() {
   const allTags = useMemo(() => { const t = new Set(s.tags || []); s.guests.forEach(g => (g.tags || []).forEach(tag => t.add(tag))); return [...t]; }, [s.guests, s.tags]);
   const gCl = ["#B8956A","#8BA888","#D4A0A0","#5A82B4","#C9A032","#9A9A9A","#A088B8","#B85C5C"];
 
-  const quickAdd = () => { const n = qn.trim(); if (!n) return; d({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: 1 } }); setQn(""); ref.current?.focus() };
+  const quickCount = qType === "couple" ? 2 : qType === "family" ? Math.max(3, Number(qFamilySize) || 3) : 1;
+  const quickAdd = () => { const n = qn.trim(); if (!n) return; d({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: quickCount } }); setQn(""); ref.current?.focus() };
   const cycleRsvp = g => { const nx = { pending: "confirmed", confirmed: "declined", declined: "pending" }; d({ type: "UPD_GUEST", p: { id: g.id, rsvp: nx[g.rsvp] } }) };
 
   return (
@@ -1019,12 +1079,24 @@ function Guests() {
           <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--gd)" }}>⚡ Adaugă rapid</div>
           <button onClick={() => setShowImport(true)} style={{ fontSize: 10, fontWeight: 600, color: "var(--g)", padding: "3px 8px", borderRadius: 8, background: "rgba(184,149,106,.08)" }}>📥 Import CSV</button>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <input ref={ref} value={qn} onChange={e => setQn(e.target.value)} onKeyDown={e => e.key === "Enter" && quickAdd()} placeholder="Nume invitat..." style={{ flex: 1, padding: "9px 11px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13 }} />
-          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 100 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
+          <input ref={ref} value={qn} onChange={e => setQn(e.target.value)} onKeyDown={e => e.key === "Enter" && quickAdd()} placeholder="Nume invitat/familie..." style={{ flex: 1, padding: "9px 11px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13 }} />
+          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 110 }}>
             {groups.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
           <button onClick={quickAdd} style={{ width: 38, height: 38, borderRadius: "var(--rs)", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {[{k:"single",l:"👤 Single"},{k:"couple",l:"👫 Cuplu"},{k:"family",l:"👨‍👩‍👧 Familie"}].map(t => (
+            <button key={t.k} onClick={() => setQType(t.k)} style={{ padding: "5px 9px", borderRadius: 12, fontSize: 11, fontWeight: 600, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
+          ))}
+          {qType === "family" && <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 2 }}>
+            <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Persoane</span>
+            <button onClick={() => setQFamilySize(v => Math.max(3, v - 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>−</button>
+            <span style={{ minWidth: 14, textAlign: "center", fontSize: 12, fontWeight: 700, color: "var(--gd)" }}>{qFamilySize}</span>
+            <button onClick={() => setQFamilySize(v => Math.min(12, v + 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>+</button>
+          </div>}
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--mt)", fontWeight: 600 }}>Se adaugă: {quickCount} pers.</span>
         </div>
       </Card>
 
@@ -1158,6 +1230,10 @@ function TablesList() {
   const [editingTable, setEditingTable] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [movingGuest, setMovingGuest] = useState(null); // {gid, fromTid}
+  const [tableFilter, setTableFilter] = useState("all");
+  const [tableSort, setTableSort] = useState("default");
+  const [viewMode, setViewMode] = useState("list");
+  const [dragTid, setDragTid] = useState(null);
 
   const unassigned = useMemo(() => s.guests.filter(g => !g.tid && g.rsvp === "confirmed"), [s.guests]);
   const gAt = useCallback(tid => s.guests.filter(g => g.tid === tid), [s.guests]);
@@ -1175,6 +1251,34 @@ function TablesList() {
     return l;
   }, [unassigned, searchG]);
 
+  const tableStats = useMemo(() => s.tables.map(t => {
+    const seated = gAt(t.id);
+    const seatedPersons = seated.reduce((a, g) => a + gCount(g), 0);
+    const free = t.seats - seatedPersons;
+    return { ...t, seated, seatedPersons, free, isFull: free <= 0 };
+  }), [s.tables, gAt]);
+
+  const displayedTables = useMemo(() => {
+    let list = [...tableStats];
+    if (tableFilter === "free") list = list.filter(t => t.free > 0);
+    if (tableFilter === "full") list = list.filter(t => t.free <= 0);
+    if (tableSort === "name") list.sort((a, b) => a.name.localeCompare(b.name, "ro"));
+    if (tableSort === "free_desc") list.sort((a, b) => b.free - a.free);
+    if (tableSort === "free_asc") list.sort((a, b) => a.free - b.free);
+    return list;
+  }, [tableStats, tableFilter, tableSort]);
+
+  const moveTableOrder = (fromId, toId) => {
+    if (!fromId || !toId || fromId === toId) return;
+    const arr = [...s.tables];
+    const from = arr.findIndex(t => t.id === fromId);
+    const to = arr.findIndex(t => t.id === toId);
+    if (from < 0 || to < 0) return;
+    const [it] = arr.splice(from, 1);
+    arr.splice(to, 0, it);
+    d({ type: "REORDER_TABLES", p: arr });
+  };
+
   return (
     <div className="fu" style={{ padding: "0 14px 20px" }}>
       <Card style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1187,6 +1291,34 @@ function TablesList() {
           <div style={{ fontFamily: "var(--fd)", fontSize: 24, fontWeight: 500, color: unassigned.length > 0 ? "var(--wn)" : "var(--ok)" }}>{unassigned.length}</div>
         </div>
       </Card>
+
+      <Card style={{ marginBottom: 12, padding: 10 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Filtru</span>
+          {[{k:"all",l:"Toate"},{k:"free",l:"Cu locuri libere"},{k:"full",l:"Complete"}].map(f => <button key={f.k} onClick={() => setTableFilter(f.k)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: tableFilter===f.k ? "var(--gd)" : "var(--cr)", color: tableFilter===f.k ? "#fff" : "var(--gr)", border: `1px solid ${tableFilter===f.k ? "var(--gd)" : "var(--bd)"}` }}>{f.l}</button>)}
+          <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700, marginLeft: 6 }}>Sortare</span>
+          <select value={tableSort} onChange={e => setTableSort(e.target.value)} style={{ padding: "5px 8px", borderRadius: 10, background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 10, color: "var(--gr)" }}>
+            <option value="default">Implicit</option>
+            <option value="name">Nume A-Z</option>
+            <option value="free_desc">Locuri libere desc</option>
+            <option value="free_asc">Locuri libere asc</option>
+          </select>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+            <button onClick={() => setViewMode("list")} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, background: viewMode === "list" ? "var(--ink)" : "var(--cr)", color: viewMode === "list" ? "var(--bg)" : "var(--mt)", border: `1px solid ${viewMode === "list" ? "var(--ink)" : "var(--bd)"}` }}>Listă</button>
+            <button onClick={() => setViewMode("grid")} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, background: viewMode === "grid" ? "var(--ink)" : "var(--cr)", color: viewMode === "grid" ? "var(--bg)" : "var(--mt)", border: `1px solid ${viewMode === "grid" ? "var(--ink)" : "var(--bd)"}` }}>Grid</button>
+          </div>
+        </div>
+      </Card>
+
+      {viewMode === "grid" && <Card style={{ marginBottom: 12, padding: 10 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 8 }}>Sumar vizual mese</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
+          {displayedTables.map(t => <button key={t.id} onClick={() => { setExpanded(e => ({ ...e, [t.id]: true })); setViewMode("list"); }} style={{ textAlign: "left", padding: "8px", borderRadius: 10, border: "1px solid var(--bd)", background: t.free > 0 ? "var(--cr)" : "rgba(107,158,104,.08)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink)", marginBottom: 2 }}>{t.name}</div>
+            <div style={{ fontSize: 10, color: "var(--mt)" }}>{t.seatedPersons}/{t.seats} pers · {t.free > 0 ? `${t.free} libere` : "Completă"}</div>
+          </button>)}
+        </div>
+      </Card>}
 
       {/* Unassigned chips — just names, no instruction text */}
       {unassigned.length > 0 && <Card style={{ marginBottom: 12, padding: "10px 12px" }}>
@@ -1207,7 +1339,7 @@ function TablesList() {
         <Btn v="secondary" onClick={() => setShowAdd(true)} style={{ fontSize: 11, padding: "5px 12px" }}>{ic.plus} Masă nouă</Btn>
       </div>
 
-      {s.tables.map(table => {
+      {(viewMode === "list" ? displayedTables : []).map(table => {
         const seated = gAt(table.id);
         const seatedPersons = seated.reduce((a, g) => a + gCount(g), 0);
         const free = table.seats - seatedPersons;
@@ -1216,13 +1348,13 @@ function TablesList() {
         const isPicking = pickingFor === table.id;
 
         return (
-          <Card key={table.id} style={{ marginBottom: 8, padding: 0, overflow: "hidden" }}>
+          <Card key={table.id} draggable={tableSort === "default" && tableFilter === "all"} onDragStart={() => setDragTid(table.id)} onDragOver={e => { if (dragTid) e.preventDefault(); }} onDrop={() => { moveTableOrder(dragTid, table.id); setDragTid(null); }} onDragEnd={() => setDragTid(null)} style={{ marginBottom: 8, padding: 0, overflow: "hidden", opacity: dragTid && dragTid !== table.id ? .96 : 1 }}>
             <div onClick={() => toggle(table.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}>
               <div style={{ width: 36, height: 36, borderRadius: table.shape === "round" ? "50%" : 8, background: isFull ? "rgba(107,158,104,.1)" : "var(--cr)", border: `1.5px solid ${isFull ? "var(--ok)" : "var(--bd)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: isFull ? "var(--ok)" : "var(--gd)" }}>{seated.length}</span>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{table.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>{tableSort === "default" && tableFilter === "all" && <span style={{ color: "var(--ft)", fontSize: 12 }}>↕</span>}{table.name}</div>
                 <div style={{ fontSize: 11, color: "var(--mt)" }}>
                   {table.shape === "round" ? "Rotundă" : "Dreptunghiulară"} · {table.seats} locuri · <span style={{ color: isFull ? "var(--ok)" : "var(--gd)", fontWeight: 600 }}>{free} libere</span>
                 </div>
@@ -1350,6 +1482,7 @@ function BudgetMod() {
   const tS = s.budget.reduce((a, b) => a + b.spent, 0);
   const pct = tP > 0 ? Math.round((tS / tP) * 100) : 0;
   const cl = ["#B8956A", "#8BA888", "#D4A0A0", "#5A82B4", "#C9A032", "#B85C5C", "#9A9A9A", "#A088B8"];
+  const vendorByName = useMemo(() => new Map((s.vendors || []).map(v => [(v.name || "").trim().toLowerCase(), v])), [s.vendors]);
 
   // SVG donut
   let angle = 0;
@@ -1391,10 +1524,11 @@ function BudgetMod() {
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>Categorii</span>
         <Btn v="secondary" onClick={() => { setEditing(null); setShowForm(true) }} style={{ fontSize: 10, padding: "4px 10px" }}>{ic.plus} Adaugă</Btn>
       </div>
-      {s.budget.map((b, i) => { const p = Math.round((b.spent / Math.max(b.planned, 1)) * 100); return (
+      {s.budget.map((b, i) => { const p = Math.round((b.spent / Math.max(b.planned, 1)) * 100); const linkedVendor = vendorByName.get((b.vendor || "").trim().toLowerCase()); return (
         <Card key={b.id} onClick={() => { setEditing(b); setShowForm(true) }} style={{ marginBottom: 7, cursor: "pointer", padding: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: cl[i % cl.length] }} /><span style={{ flex: 1, fontWeight: 600, fontSize: 13 }}>{b.cat}</span><Badge c={b.status === "paid" ? "green" : b.status === "partial" ? "blue" : "gray"}>{b.status === "paid" ? "Plătit" : b.status === "partial" ? "Parțial" : "Neplătit"}</Badge></div>
           {b.vendor && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3 }}>📍 {b.vendor}</div>}
+          {linkedVendor && <div style={{ display: "flex", gap: 5, marginBottom: 4, flexWrap: "wrap" }}><Badge c={linkedVendor.status === "contracted" ? "green" : linkedVendor.status === "negotiating" ? "blue" : "gray"}>{linkedVendor.status === "contracted" ? "Contractat" : linkedVendor.status === "negotiating" ? "Negociere" : linkedVendor.status === "potential" ? "Potențial" : linkedVendor.status}</Badge><Badge c="gold">⭐ {linkedVendor.rating || 0}/5</Badge></div>}
           {b.notes && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3, fontStyle: "italic" }}>📝 {b.notes}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}><span>{fmtC(b.spent)}</span><span style={{ color: "var(--mt)" }}>{fmtC(b.planned)}</span></div>
           <div style={{ height: 4, background: "var(--cr2)", borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", borderRadius: 2, width: `${Math.min(p, 100)}%`, background: p > 100 ? "var(--er)" : "var(--g)", transition: "width .5s" }} /></div>
@@ -1410,19 +1544,84 @@ function BudgetMod() {
 }
 
 function BudgetFormInner({ item, onClose }) {
-  const { d } = useContext(Ctx);
-  const [f, setF] = useState(item ? { ...item } : { cat: "", planned: 0, spent: 0, vendor: "", status: "unpaid" });
+  const { s, d } = useContext(Ctx);
+  const [f, setF] = useState(item ? { ...item, payments: item.payments || [] } : { cat: "", planned: 0, spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] });
   const [showConfirm, setShowConfirm] = useState(false);
+  const [pAmt, setPAmt] = useState(0);
+  const [pDate, setPDate] = useState(new Date().toISOString().slice(0, 10));
+  const [pNote, setPNote] = useState("");
   const u = k => v => setF(x => ({ ...x, [k]: v }));
+
+  const norm = (v) => (v || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  const sameCat = (vCat, bCat) => norm(vCat).includes(norm(bCat)) || norm(bCat).includes(norm(vCat));
+
+  const vendors = s.vendors || [];
+  const linkedByCat = vendors.filter(v => f.cat && sameCat(v.cat, f.cat));
+  const contractedByCat = linkedByCat.find(v => v.status === "contracted");
+  const vendorOptions = [{ value: "", label: "— Selectează furnizor —" }, ...vendors.map(v => ({ value: v.name, label: `${v.name}${v.cat ? ` · ${v.cat}` : ""}${v.status ? ` (${v.status})` : ""}` }))];
+
+  useEffect(() => {
+    if (!f.cat || f.vendor) return;
+    if (contractedByCat?.name) setF(x => ({ ...x, vendor: contractedByCat.name }));
+  }, [f.cat, f.vendor, contractedByCat?.name]);
+
+  const payments = f.payments || [];
+  const spentFromPayments = payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
+  const effectiveSpent = payments.length > 0 ? spentFromPayments : (Number(f.spent) || 0);
+
+  const addPayment = () => {
+    const amt = Number(pAmt) || 0;
+    if (amt <= 0) return;
+    setF(x => ({ ...x, payments: [...(x.payments || []), { id: mkid(), amount: amt, date: pDate || new Date().toISOString().slice(0, 10), note: pNote || "" }], spent: spentFromPayments + amt }));
+    setPAmt(0); setPNote("");
+  };
+  const delPayment = (id) => setF(x => {
+    const nx = (x.payments || []).filter(p => p.id !== id);
+    const spent = nx.reduce((a, p) => a + (Number(p.amount) || 0), 0);
+    return { ...x, payments: nx, spent };
+  });
+
   return <>
     <Fld label="Categorie" value={f.cat} onChange={u("cat")} />
     <Fld label="Planificat (€)" value={f.planned} onChange={v => u("planned")(parseFloat(v) || 0)} type="number" />
-    <Fld label="Cheltuit (€)" value={f.spent} onChange={v => u("spent")(parseFloat(v) || 0)} type="number" />
-    <Fld label="Furnizor" value={f.vendor} onChange={u("vendor")} />
+    <Fld label="Cheltuit total (€)" value={effectiveSpent} onChange={v => u("spent")(parseFloat(v) || 0)} type="number" />
+
+    <div style={{ marginBottom: 12, padding: 10, borderRadius: "var(--rs)", border: "1px solid var(--bd)", background: "var(--cr)" }}>
+      <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 6 }}>Istoric plăți</div>
+      {(payments || []).length > 0 ? <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 8 }}>
+        {payments.map(pay => <div key={pay.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--bd)", background: "var(--cd)" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gd)", minWidth: 68 }}>{fmtC(pay.amount)}</span>
+          <span style={{ fontSize: 10, color: "var(--mt)", minWidth: 78 }}>{fmtD(pay.date)}</span>
+          <span style={{ fontSize: 10, color: "var(--gr)", flex: 1, minWidth: 0 }}>{pay.note || "—"}</span>
+          <button onClick={() => delPayment(pay.id)} style={{ padding: 2, color: "var(--mt)" }}>{ic.trash}</button>
+        </div>)}
+      </div> : <div style={{ fontSize: 11, color: "var(--mt)", marginBottom: 8 }}>Nicio plată înregistrată încă.</div>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
+        <input type="number" value={pAmt} onChange={e => setPAmt(e.target.value)} placeholder="Suma (€)" style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 12 }} />
+        <input type="date" value={pDate} onChange={e => setPDate(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 12 }} />
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <input value={pNote} onChange={e => setPNote(e.target.value)} placeholder="Notă (avans, rată, rest...)" style={{ flex: 1, padding: "8px 10px", borderRadius: 8, background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 12 }} />
+        <Btn v="secondary" onClick={addPayment} style={{ fontSize: 11, padding: "8px 10px" }}>{ic.plus} Plată</Btn>
+      </div>
+    </div>
+
+    {contractedByCat && <div style={{ marginBottom: 8, fontSize: 10, color: "var(--ok)", fontWeight: 600 }}>🔗 Sugestie automată pentru categorie: {contractedByCat.name} (contractat)</div>}
+    <Fld label="Furnizor (din listă)" value={f.vendor} onChange={u("vendor")} options={vendorOptions} />
+    <Fld label="Sau introdu manual" value={f.vendor} onChange={u("vendor")} placeholder="Nume furnizor..." />
+
+    {linkedByCat.length > 0 && <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 5 }}>Furnizori pe această categorie</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+        {linkedByCat.map(v => <button key={v.id} onClick={() => u("vendor")(v.name)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, background: f.vendor === v.name ? "var(--gd)" : "var(--cr)", color: f.vendor === v.name ? "#fff" : "var(--gr)", border: `1px solid ${f.vendor === v.name ? "var(--gd)" : "var(--bd)"}` }}>{v.name} {v.status === "contracted" ? "✓" : ""}</button>)}
+      </div>
+    </div>}
+
     <Fld label="Status" value={f.status} onChange={u("status")} options={[{ value: "unpaid", label: "Neplătit" }, { value: "partial", label: "Parțial" }, { value: "paid", label: "Plătit" }]} />
     <Fld label="Note" value={f.notes} onChange={u("notes")} type="textarea" placeholder="Plata în 2 rate, factură trimisă..." />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { d({ type: item ? "UPD_BUDGET" : "ADD_BUDGET", p: { ...f, id: item?.id || mkid() } }); onClose() }} disabled={!f.cat}>Salvează</Btn>
+      <Btn full onClick={() => { const cleanNotes = f.notes || ""; d({ type: item ? "UPD_BUDGET" : "ADD_BUDGET", p: { ...f, spent: effectiveSpent, notes: cleanNotes, id: item?.id || mkid() } }); onClose() }} disabled={!f.cat}>Salvează</Btn>
       {item && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
     <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { d({ type: "DEL_BUDGET", p: item.id }); onClose() }} title="Șterge categoria?" message={`"${item?.cat}" va fi eliminată din buget.`} />
@@ -1794,13 +1993,13 @@ function Onboarding({ onComplete }) {
       id: mkid(), name: i === 0 ? "Masa Mirilor" : `Masa ${i}`, seats: i === 0 ? 6 : 8, shape: i === 0 ? "rectangular" : "round", notes: "",
     }));
     const defaultBudget = [
-      { id: mkid(), cat: "Locație", planned: Math.round(budget * 0.2), spent: 0, vendor: venue, status: "unpaid", notes: "" },
-      { id: mkid(), cat: "Catering", planned: Math.round(budget * 0.35), spent: 0, vendor: "", status: "unpaid", notes: "" },
-      { id: mkid(), cat: "Fotograf/Video", planned: Math.round(budget * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "" },
-      { id: mkid(), cat: "Muzică", planned: Math.round(budget * 0.08), spent: 0, vendor: "", status: "unpaid", notes: "" },
-      { id: mkid(), cat: "Floristică", planned: Math.round(budget * 0.07), spent: 0, vendor: "", status: "unpaid", notes: "" },
-      { id: mkid(), cat: "Rochie & Costum", planned: Math.round(budget * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "" },
-      { id: mkid(), cat: "Altele", planned: Math.round(budget * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "" },
+      { id: mkid(), cat: "Locație", planned: Math.round(budget * 0.2), spent: 0, vendor: venue, status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Catering", planned: Math.round(budget * 0.35), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Fotograf/Video", planned: Math.round(budget * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Muzică", planned: Math.round(budget * 0.08), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Floristică", planned: Math.round(budget * 0.07), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Rochie & Costum", planned: Math.round(budget * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Altele", planned: Math.round(budget * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
     ];
     const defaultTasks = [
       { id: mkid(), title: "Rezervă locația", due: "", status: "pending", prio: "high", cat: "Locație" },
@@ -1811,7 +2010,7 @@ function Onboarding({ onComplete }) {
       { id: mkid(), title: "Alege muzica/DJ", due: "", status: "pending", prio: "low", cat: "Muzică" },
     ];
     onComplete({
-      wedding: { couple, date, venue, budget: Number(budget) },
+      wedding: { couple, date, venue, budget: Number(budget), guestTarget: Math.max(1, Number(guestCount) || 1), program: [], theme: "" },
       groups: ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"],
       guests: [], tables, budget: defaultBudget, tasks: defaultTasks, vendors: [],
       onboarded: true, activity: [{ id: mkid(), msg: "Nuntă configurată!", ts: new Date().toISOString() }],
@@ -2008,22 +2207,24 @@ function MenuCalc() {
     const d = g.dietary?.trim().toLowerCase();
     if (d) dietMap[d] = (dietMap[d] || 0) + 1;
   });
-  const standard = conf.length - Object.values(dietMap).reduce((a, b) => a + b, 0);
+  const confPpl = sumGuests(conf);
+  const pendPpl = sumGuests(pend);
+  const standard = confPpl - Object.values(dietMap).reduce((a, b) => a + b, 0);
   const dietList = Object.entries(dietMap).sort((a, b) => b[1] - a[1]);
 
   // Tag-based counts
-  const childCount = conf.filter(g => (g.tags || []).includes("Copil")).length;
-  const adultCount = conf.length - childCount;
+  const childCount = conf.filter(g => (g.tags || []).includes("Copil")).reduce((a, g) => a + gCount(g), 0);
+  const adultCount = Math.max(confPpl - childCount, 0);
 
   // Budget per guest — uses total budget, not magic catering lookup
   const tP = s.budget.reduce((a, b) => a + b.planned, 0);
   const tS = s.budget.reduce((a, b) => a + b.spent, 0);
   const wBudget = s.wedding.budget || tP;
-  const costPerGuest = conf.length > 0 ? Math.round(wBudget / conf.length) : 0;
+  const costPerGuest = confPpl > 0 ? Math.round(wBudget / confPpl) : 0;
 
   const copyText = () => {
     let txt = `SUMAR MENIU — ${s.wedding.couple}\n${fmtD(s.wedding.date)} · ${s.wedding.venue}\n\n`;
-    txt += `TOTAL CONFIRMAȚI: ${conf.length}\n`;
+    txt += `TOTAL CONFIRMAȚI: ${conf.length} invitați (${confPpl} persoane)\n`;
     txt += `  Adulți: ${adultCount}\n`;
     if (childCount > 0) txt += `  Copii: ${childCount}\n`;
     txt += `  Standard (fără restricții): ${standard}\n\n`;
@@ -2031,7 +2232,7 @@ function MenuCalc() {
       txt += `RESTRICȚII ALIMENTARE:\n`;
       dietList.forEach(([d, c]) => { txt += `  ${d.charAt(0).toUpperCase() + d.slice(1)}: ${c} ${c === 1 ? "persoană" : "persoane"}\n`; });
     }
-    txt += `\nÎN AȘTEPTARE: ${pend.length} (posibil +${pend.length})\n`;
+    txt += `\nÎN AȘTEPTARE: ${pend.length} invitați (posibil +${pendPpl} persoane)\n`;
     txt += `\nBUGET TOTAL: ${fmtC(wBudget)}\n`;
     txt += `COST/INVITAT: ~${fmtC(costPerGuest)}\n`;
     navigator.clipboard?.writeText(txt);
@@ -2480,8 +2681,9 @@ export default function App() {
       case "ADD_TABLE": dbSync.addTable(wid, p).then(row => { if (row) dispatch({ type: "UPD_TABLE", p: { id: p.id, ...row } }); }); break;
       case "UPD_TABLE": dbSync.updateTable(p.id, p); break;
       case "DEL_TABLE": dbSync.deleteTable(p); break;
-      case "ADD_BUDGET": dbSync.addBudgetItem(wid, p).then(row => { if (row) dispatch({ type: "UPD_BUDGET", p: { id: p.id, ...row, cat: row.category } }); }); break;
-      case "UPD_BUDGET": dbSync.updateBudgetItem(p.id, p); break;
+      case "REORDER_TABLES": break;
+      case "ADD_BUDGET": dbSync.addBudgetItem(wid, { ...p, notes: serializeBudgetNotes(p.notes, p.payments) }).then(row => { if (row) { const parsed = parseBudgetNotes(row.notes || ""); dispatch({ type: "UPD_BUDGET", p: { id: p.id, ...row, cat: row.category, notes: parsed.cleanNotes, payments: parsed.payments || [] } }); } }); break;
+      case "UPD_BUDGET": dbSync.updateBudgetItem(p.id, { ...p, notes: serializeBudgetNotes(p.notes, p.payments) }); break;
       case "DEL_BUDGET": dbSync.deleteBudgetItem(p); break;
       case "ADD_TASK": dbSync.addTask(wid, p).then(row => { if (row) dispatch({ type: "UPD_TASK", p: { id: p.id, ...row, prio: row.priority } }); }); break;
       case "UPD_TASK": dbSync.updateTask(p.id, p); break;
@@ -2523,10 +2725,12 @@ export default function App() {
   // ── Loading screen ──
   if (authLoading || dataLoading) {
     return (
-      <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(155deg,#1A1A1A,#28221C,#1A1A1A)" }}>
-        <img src={LOGO_SM} alt="Wedify" style={{ width: 80, height: 80, objectFit: "contain", marginBottom: 16, opacity: 0.7 }} />
-        <div style={{ width: 24, height: 24, border: "2px solid rgba(184,149,106,.3)", borderTopColor: "var(--g)", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
-        <p style={{ marginTop: 12, fontSize: 12, color: "rgba(255,255,255,.3)" }}>Se încarcă...</p>
+      <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle at 12% 8%,rgba(184,149,106,.16),transparent 35%), radial-gradient(circle at 86% 90%,rgba(184,149,106,.14),transparent 40%), linear-gradient(155deg,#171513,#241E19,#171513)", padding: "24px" }}>
+        <div style={{ width: "100%", maxWidth: 420, borderRadius: 24, border: "1px solid rgba(255,255,255,.08)", background: "rgba(17,16,14,.38)", backdropFilter: "blur(20px)", padding: "34px 24px", display: "flex", flexDirection: "column", alignItems: "center", boxShadow: "0 20px 60px rgba(0,0,0,.38)" }}>
+          <img src={LOGO_SM} alt="Wedify" style={{ width: 118, height: 118, objectFit: "contain", marginBottom: 16, filter: "drop-shadow(0 8px 18px rgba(0,0,0,.45))" }} />
+          <div style={{ width: 30, height: 30, border: "2px solid rgba(184,149,106,.28)", borderTopColor: "var(--g)", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
+          <p style={{ marginTop: 12, fontSize: 13, color: "rgba(255,255,255,.72)", letterSpacing: ".02em" }}>Se încarcă...</p>
+        </div>
       </div>
     );
   }
@@ -2565,7 +2769,7 @@ export default function App() {
   const titles = { home: "Dashboard", guests: "Invitați", tables: "Aranjare Mese", budget: "Buget", tasks: "Timeline", tools: "Unelte" };
 
   return (
-    <Ctx.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme }}>
+    <Ctx.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme, setTab }}>
       <div data-theme={theme} style={{ width: "100%", maxWidth: 460, margin: "0 auto", height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--ink)", opacity: ready ? 1 : 0, transition: "opacity .3s" }}>
         <header style={{ height: "var(--hd)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px", borderBottom: "1px solid var(--bd)", background: theme === "dark" ? "rgba(26,24,22,.92)" : "rgba(255,253,248,.92)", backdropFilter: "blur(12px)", flexShrink: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}><img src={LOGO_XS} alt="Wedify" style={{ width: 28, height: 28, objectFit: "contain" }} /><span style={{ fontFamily: "var(--fd)", fontSize: 16, fontWeight: 500 }}>{titles[tab]}</span></div>
