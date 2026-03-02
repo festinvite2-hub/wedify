@@ -493,42 +493,6 @@ function Fld({label,value,onChange,type="text",placeholder,options}){
 }
 function Badge({children,c="gold"}){const m={gold:{b:"rgba(184,149,106,.1)",c:"var(--gd)"},green:{b:"rgba(107,158,104,.1)",c:"var(--ok)"},red:{b:"rgba(184,92,92,.08)",c:"var(--er)"},blue:{b:"rgba(90,130,180,.1)",c:"#5A82B4"},gray:{b:"rgba(160,160,160,.08)",c:"var(--mt)"},rose:{b:"rgba(212,160,160,.12)",c:"#B07070"}};const s=m[c]||m.gold;return <span style={{display:"inline-flex",padding:"2px 8px",borderRadius:12,fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",background:s.b,color:s.c}}>{children}</span>}
 function Stars({v,onChange}){return <div style={{display:"flex",gap:2}}>{[1,2,3,4,5].map(i=><button key={i} onClick={()=>onChange?.(i)} style={{padding:1,color:i<=v?"var(--g)":"var(--ft)"}}>{i<=v?ic.star:ic.starO}</button>)}</div>}
-function LogoNoBlack({alt="Wedify",style}){
-  const [src, setSrc] = useState("");
-  useEffect(() => {
-    let dead = false;
-    const img = new Image();
-    img.onload = () => {
-      const cv = document.createElement("canvas");
-      cv.width = img.width; cv.height = img.height;
-      const cx = cv.getContext("2d");
-      if (!cx) { if (!dead) setSrc(LOGO_SM); return; }
-      cx.drawImage(img, 0, 0);
-      const d = cx.getImageData(0, 0, cv.width, cv.height);
-      const px = d.data;
-      for (let i = 0; i < px.length; i += 4) {
-        const r = px[i], g = px[i+1], b = px[i+2], a = px[i+3];
-        if (a === 0) continue;
-        const max = Math.max(r, g, b);
-        const min = Math.min(r, g, b);
-        const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        const sat = max - min;
-        if (lum < 26) {
-          px[i+3] = 0;
-        } else if (lum < 64 && sat < 26) {
-          px[i+3] = Math.round(a * ((lum - 26) / 38));
-        }
-      }
-      cx.putImageData(d, 0, 0);
-      if (!dead) setSrc(cv.toDataURL("image/png"));
-    };
-    img.onerror = () => { if (!dead) setSrc(LOGO_SM); };
-    img.src = LOGO_SM;
-    return () => { dead = true; };
-  }, []);
-  return <img src={src || LOGO_SM} alt={alt} style={style} />;
-}
-
 // ─── AUTH ────────────────────────────────────────────────────
 // ─── Auth Screen (Supabase production) ───────────────────────
 function AuthScreen({onLogin}){
@@ -604,7 +568,7 @@ function AuthScreen({onLogin}){
       <div style={{position:"absolute",top:-60,right:-70,width:240,height:240,background:"radial-gradient(circle,rgba(184,149,106,.16),transparent 70%)",borderRadius:"50%"}}/>
       <div style={{position:"absolute",bottom:-70,left:-80,width:260,height:260,background:"radial-gradient(circle,rgba(184,149,106,.12),transparent 72%)",borderRadius:"50%"}}/>
       <div style={{flex:"0 0 auto",padding:"46px 28px 0",textAlign:"center",position:"relative",zIndex:1}}>
-        <LogoNoBlack alt="Wedify" style={{width:132,height:132,objectFit:"contain",marginBottom:6,filter:"drop-shadow(0 8px 18px rgba(0,0,0,.45))"}} />
+        <img src={LOGO_SM} alt="Wedify" style={{width:132,height:132,objectFit:"contain",marginBottom:6,filter:"drop-shadow(0 8px 18px rgba(0,0,0,.45))"}} />
       </div>
       <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"20px 22px 26px",position:"relative",zIndex:1}}>
         <div style={{width:"100%",maxWidth:760,margin:"0 auto",background:"rgba(17,16,14,.42)",backdropFilter:"blur(18px)",borderRadius:24,padding:"28px 24px",border:"1px solid rgba(255,255,255,.08)",boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
@@ -2768,7 +2732,7 @@ export default function App() {
     return (
       <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "radial-gradient(circle at 12% 8%,rgba(184,149,106,.16),transparent 35%), radial-gradient(circle at 86% 90%,rgba(184,149,106,.14),transparent 40%), linear-gradient(155deg,#171513,#241E19,#171513)", padding: "24px" }}>
         <div style={{ width: "100%", maxWidth: 420, borderRadius: 24, border: "1px solid rgba(255,255,255,.08)", background: "rgba(17,16,14,.38)", backdropFilter: "blur(20px)", padding: "34px 24px", display: "flex", flexDirection: "column", alignItems: "center", boxShadow: "0 20px 60px rgba(0,0,0,.38)" }}>
-          <LogoNoBlack alt="Wedify" style={{ width: 118, height: 118, objectFit: "contain", marginBottom: 16, filter: "drop-shadow(0 8px 18px rgba(0,0,0,.45))" }} />
+          <img src={LOGO_SM} alt="Wedify" style={{ width: 118, height: 118, objectFit: "contain", marginBottom: 16, filter: "drop-shadow(0 8px 18px rgba(0,0,0,.45))" }} />
           <div style={{ width: 30, height: 30, border: "2px solid rgba(184,149,106,.28)", borderTopColor: "var(--g)", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
           <p style={{ marginTop: 12, fontSize: 13, color: "rgba(255,255,255,.72)", letterSpacing: ".02em" }}>Se încarcă...</p>
         </div>
