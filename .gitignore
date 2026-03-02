@@ -34,4 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-public/wedify-logo.png
+
+# keep deployed branding asset tracked
+!public/
+!public/wedify-logo.png
