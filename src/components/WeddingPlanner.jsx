@@ -565,14 +565,14 @@ function AuthScreen({onLogin}){
   const spin=<div style={{width:16,height:16,border:"2px solid rgba(255,255,255,.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin .5s linear infinite"}}/>;
 
   return(
-    <div style={{minHeight:"100dvh",width:"100%",display:"flex",flexDirection:"column",background:"radial-gradient(circle at 12% 8%,rgba(184,149,106,.16),transparent 35%), radial-gradient(circle at 88% 95%,rgba(184,149,106,.14),transparent 38%), linear-gradient(155deg,#171513,#241E19,#171513)",overflow:"auto",opacity:ready?1:0,transition:"opacity .7s"}}>
-      <div style={{position:"absolute",top:-60,right:-70,width:240,height:240,background:"radial-gradient(circle,rgba(184,149,106,.16),transparent 70%)",borderRadius:"50%"}}/>
-      <div style={{position:"absolute",bottom:-70,left:-80,width:260,height:260,background:"radial-gradient(circle,rgba(184,149,106,.12),transparent 72%)",borderRadius:"50%"}}/>
-      <div style={{flex:"0 0 auto",padding:"46px 28px 0",textAlign:"center",position:"relative",zIndex:1}}>
-        <img src={LOGO_SM} alt="Wedify" style={{width:132,height:132,objectFit:"contain",marginBottom:6,filter:"drop-shadow(0 8px 18px rgba(0,0,0,.45))"}} />
-      </div>
-      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"20px 22px 26px",position:"relative",zIndex:1}}>
-        <div style={{width:"100%",maxWidth:760,margin:"0 auto",background:"rgba(17,16,14,.42)",backdropFilter:"blur(18px)",borderRadius:24,padding:"28px 24px",border:"1px solid rgba(255,255,255,.08)",boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
+    <div style={{minHeight:"100svh",width:"100%",maxWidth:"100vw",position:"relative",display:"flex",flexDirection:"column",background:"radial-gradient(circle at 12% 8%,rgba(184,149,106,.16),transparent 35%), radial-gradient(circle at 88% 95%,rgba(184,149,106,.14),transparent 38%), linear-gradient(155deg,#171513,#241E19,#171513)",overflowX:"hidden",overflowY:"auto",padding:"max(18px,env(safe-area-inset-top,0px)) 16px max(18px,env(safe-area-inset-bottom,0px))",boxSizing:"border-box",opacity:ready?1:0,transition:"opacity .7s"}}>
+      <div style={{position:"absolute",top:-60,right:-70,width:240,height:240,background:"radial-gradient(circle,rgba(184,149,106,.16),transparent 70%)",borderRadius:"50%",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",bottom:-70,left:-80,width:260,height:260,background:"radial-gradient(circle,rgba(184,149,106,.12),transparent 72%)",borderRadius:"50%",pointerEvents:"none"}}/>
+      <div style={{width:"100%",maxWidth:760,margin:"0 auto",minHeight:"calc(100svh - 36px)",display:"flex",flexDirection:"column",justifyContent:"center",position:"relative",zIndex:1}}>
+        <div style={{display:"flex",justifyContent:"center",padding:"4px 0 18px"}}>
+          <img src={LOGO_SM} alt="Wedify" style={{width:"min(48vw,190px)",height:"min(48vw,190px)",objectFit:"contain",filter:"drop-shadow(0 10px 22px rgba(0,0,0,.5))"}} />
+        </div>
+        <div style={{width:"100%",background:"rgba(17,16,14,.42)",backdropFilter:"blur(18px)",borderRadius:24,padding:"28px 24px",border:"1px solid rgba(255,255,255,.08)",boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
 
           {mode==="login"&&<>
             <h2 style={{fontFamily:"var(--fd)",fontSize:20,color:"#fff",textAlign:"center",marginBottom:20}}>Conectare</h2>
@@ -627,8 +627,8 @@ function AuthScreen({onLogin}){
           </>}
 
         </div>
+        <div style={{padding:"12px 4px 4px",textAlign:"center",fontSize:10,color:"rgba(255,255,255,.18)"}}>Wedify · Wedding Organizer</div>
       </div>
-      <div style={{padding:"8px 22px 20px",textAlign:"center",fontSize:10,color:"rgba(255,255,255,.18)"}}>Wedify · Wedding Organizer</div>
     </div>
   );
 }
