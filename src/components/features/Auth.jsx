@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { getSupabase } from "../lib/supabase-client";
-import { LOGO_SM } from "../lib/constants";
 import { Btn } from "../ui/Btn";
 
 function Auth({onLogin}){
@@ -77,7 +76,7 @@ function Auth({onLogin}){
       <div style={{position:"absolute",bottom:-70,left:-80,width:260,height:260,background:"radial-gradient(circle,rgba(184,149,106,.12),transparent 72%)",borderRadius:"50%",pointerEvents:"none"}}/>
       <div style={{width:"100%",maxWidth:760,margin:"0 auto",minHeight:"calc(100svh - 36px)",display:"flex",flexDirection:"column",justifyContent:"center",position:"relative",zIndex:1}}>
         <div style={{display:"flex",justifyContent:"center",padding:"4px 0 18px"}}>
-          <img src={LOGO_SM} alt="Wedify" style={{width:"min(48vw,190px)",height:"min(48vw,190px)",objectFit:"contain",filter:"drop-shadow(0 10px 22px rgba(0,0,0,.5))"}} />
+          <img src="/wedify-logo.png" alt="Wedify" style={{width:180,height:"auto",borderRadius:0}} onError={(e)=>{e.currentTarget.style.display="none";e.currentTarget.nextElementSibling?.classList.remove("hidden");}} /><span className="hidden" style={{color:"#fff",fontFamily:"var(--fd)",fontSize:28,fontWeight:500}}>Wedify</span>
         </div>
         <div style={{width:"100%",background:"rgba(17,16,14,.42)",backdropFilter:"blur(18px)",borderRadius:24,padding:"28px 24px",border:"1px solid rgba(255,255,255,.08)",boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
 

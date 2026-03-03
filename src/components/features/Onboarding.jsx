@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { LOGO_SM } from "../lib/constants";
 import { mkid } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { useData } from "../context/DataContext";
@@ -114,7 +113,7 @@ function Onboarding() {
     <div style={{ height: "100vh", width: "100%", display: "flex", flexDirection: "column", background: "linear-gradient(155deg,#1A1A1A,#28221C,#1A1A1A)", overflow: "hidden" }}>
       <div style={{ position: "absolute", top: -50, right: -50, width: 180, height: 180, background: "radial-gradient(circle,rgba(184,149,106,.12),transparent 70%)", borderRadius: "50%" }} />
       <div style={{ flex: "0 0 auto", padding: "48px 28px 0", textAlign: "center", position: "relative", zIndex: 1 }}>
-        <img src={LOGO_SM} alt="Wedify" style={{ width: 80, height: 80, objectFit: "contain", marginBottom: 8 }} />
+        <img src="/wedify-logo.png" alt="Wedify" style={{ width: 80, height: "auto", borderRadius: 0, marginBottom: 8 }} onError={(e)=>{e.currentTarget.style.display="none";e.currentTarget.nextElementSibling?.classList.remove("hidden");}} /><div className="hidden" style={{fontFamily:"var(--fd)",fontSize:28,color:"var(--gl)",marginBottom:8}}>Wedify</div>
         <h1 style={{ fontFamily: "var(--fd)", fontSize: 26, fontWeight: 400, color: "var(--gl)", marginBottom: 4 }}>Bine ai venit!</h1>
         <p style={{ fontSize: 12, color: "rgba(255,255,255,.3)" }}>Hai să configurăm nunta ta în 3 pași simpli</p>
       </div>

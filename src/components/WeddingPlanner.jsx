@@ -1,7 +1,6 @@
 import { useReducer, useState, useEffect, useCallback } from "react";
 import { EMPTY_STATE, reducer } from "./state/reducer";
 import { INITIAL_DATA } from "./state/demo-data";
-import { LOGO_SM } from "./lib/constants";
 import { loadAllData, dbSync } from "./lib/db-sync";
 import { getSupabase } from "./lib/supabase-client";
 import { loadTheme, saveTheme, serializeBudgetNotes } from "./lib/utils";
@@ -123,7 +122,7 @@ export default function WeddingPlanner() {
   const toggleTheme = () => setTheme(current => current === "dark" ? "light" : "dark");
 
   if (authLoading || dataLoading) {
-    return <div style={{ minHeight: "100svh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", background: "#171513" }}><img src={LOGO_SM} alt="Wedify" style={{ width: 140, height: 140, objectFit: "contain" }} /><p style={{ color: "#fff", marginTop: 8 }}>Se încarcă...</p></div>;
+    return <div style={{ minHeight: "100svh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", background: "#171513" }}><img src="/wedify-logo.png" alt="Wedify" style={{ width: 140, height: "auto", objectFit: "contain" }} onError={(e)=>{e.currentTarget.style.display="none";e.currentTarget.nextElementSibling?.classList.remove("hidden");}} /><div className="hidden" style={{ color: "#fff", fontFamily:"var(--fd)", fontSize: 32 }}>Wedify</div><p style={{ color: "#fff", marginTop: 8 }}>Se încarcă...</p></div>;
   }
 
   const authContextValue = { user, setUser };

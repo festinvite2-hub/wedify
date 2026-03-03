@@ -1,4 +1,3 @@
-import { LOGO_XS } from "../lib/constants";
 import { ic } from "../lib/icons";
 import { useTheme } from "../context/ThemeContext";
 import { useData } from "../context/DataContext";
@@ -13,7 +12,7 @@ function Header({ title, onOpenSettings }) {
   return (
     <header className="z-[100] flex h-header shrink-0 items-center justify-between border-b border-border px-3.5 backdrop-blur-[12px]" style={{ background: theme === "dark" ? "rgba(26,24,22,.92)" : "rgba(255,253,248,.92)" }}>
       <button onClick={() => setTab("home")} className="flex items-center gap-[7px]">
-        <img src={LOGO_XS} alt="Wedify" className="h-7 w-7 object-contain" />
+        <img src="/wedify-logo.png" alt="Wedify" className="h-8 w-8 object-contain" onError={(e)=>{e.currentTarget.style.display="none";e.currentTarget.nextElementSibling?.classList.remove("hidden");}} /><span className="hidden font-display text-base font-semibold">W</span>
         <span className="font-display text-base font-medium">{title || state?.wedding?.couple || "Wedify"}</span>
       </button>
       <div className="flex items-center gap-[5px]">
