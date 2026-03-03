@@ -2,33 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+:root{
+--g:#B8956A;--gl:#DCCBAA;--gd:#8A6D47;
+--cr:#FAF6F0;--cr2:#EDE7DD;--iv:#FFFDF8;
+--ink:#1A1A1A;--gr:#6B6B6B;--mt:#9A9A9A;--ft:#D2CCC2;
+--ok:#6B9E68;--wn:#C9A032;--er:#B85C5C;
+--cd:#FFFFFF;--bg:var(--iv);--bd:#E5DFD5;--sh:0 2px 14px rgba(0,0,0,.05);
+--r:14px;--rs:10px;--hd:54px;--nv:66px;
+--f:'DM Sans',-apple-system,sans-serif;--fd:'Playfair Display',Georgia,serif;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+[data-theme="dark"]{
+--g:#C9A87A;--gl:#E0D0B8;--gd:#B89060;
+--cr:#2A2520;--cr2:#332D27;--iv:#1A1816;
+--ink:#E8E0D6;--gr:#B0A898;--mt:#7B7370;--ft:#3A3530;
+--ok:#7DB87A;--wn:#D4B040;--er:#D07070;
+--cd:#22201C;--bg:#1A1816;--bd:#3A3530;--sh:0 2px 14px rgba(0,0,0,.2);
 }
-
-html, body {
-  margin: 0;
-  min-height: 100%;
-  overflow-x: hidden;
-}
-
-body {
-  min-height: 100vh;
-  color: var(--foreground);
-  background: #171513;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body,#root{height:100%;width:100%;font-family:var(--f);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+#root{overflow:hidden}
+input,select,textarea,button{font-family:var(--f);font-size:15px;border:none;outline:none;background:none;color:var(--ink)}
+button{cursor:pointer}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--gl);border-radius:3px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fu{animation:fadeUp .35s ease-out both}
