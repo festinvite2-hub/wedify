@@ -10,7 +10,7 @@ import { Fld } from "../ui/Fld";
 import { ic } from "../lib/icons";
 
 // TODO: Înlocuiește cu link-ul tău real Revolut.me
-const DONATE_URL = "https://revolut.me/wedify";
+const DONATE_URL = "https://revolut.me/mihaiiq4bq";
 
 function Settings({ open, onClose }) {
   const { state, dispatch, weddingId, showToast } = useData();
