@@ -53,7 +53,7 @@ describe('fmtD', () => {
     expect(result).toContain('2026');
   });
   it('returnează input-ul pentru dată invalidă', () => {
-    expect(fmtD('invalid')).toBe('Invalid Date');
+    expect(fmtD('invalid')).toBe('invalid');
   });
 });
 
