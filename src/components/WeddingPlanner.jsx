@@ -1,12 +1,21 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useReducer } from "react";
-import { createPortal } from "react-dom";
-import { LOGO_SM, LOGO_XS, PAY_TAG, CSS } from "./lib/constants";
+import { LOGO_SM, CSS } from "./lib/constants";
 import { mkid, gCount, sumGuests, gTypeLabel, gTypeIcon, fmtD, fmtC, parseBudgetNotes, serializeBudgetNotes, loadTheme, saveTheme, generateGuestsPDF, generateTablesPDF, openPDF } from "./lib/utils";
 import { ic } from "./lib/icons";
 import { getSupabase } from "./lib/supabase-client";
 import { loadAllData, dbSync } from "./lib/db-sync";
 import { INITIAL_DATA, reducer } from "./state/reducer";
 import { AppContext, useApp } from "./context/AppContext";
+import { Btn } from "./ui/Btn";
+import { Card } from "./ui/Card";
+import { Modal } from "./ui/Modal";
+import { Fld } from "./ui/Fld";
+import { Badge } from "./ui/Badge";
+import { Toast } from "./ui/Toast";
+import { EmptyState } from "./ui/EmptyState";
+import { SearchBar } from "./ui/SearchBar";
+import { Header } from "./ui/Header";
+import { TabBar } from "./ui/TabBar";
 
 // ═══════════════════════════════════════════════════════════════
 // WEDIFY v1.0 — Wedding Organizer | Rebranded from Wedify v14
@@ -30,67 +39,6 @@ function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
   );
 }
 
-// ─── Toast Notification ──────────────────────────────────────
-function Toast({ message, visible, type = "info" }) {
-  if (!visible) return null;
-  const bg = type === "error" ? "var(--er)" : type === "success" ? "var(--ok)" : "var(--g)";
-  return (
-    <div style={{
-      position: "fixed", top: 12, left: "50%", transform: "translateX(-50%)",
-      zIndex: 3000, padding: "10px 20px", borderRadius: 12,
-      background: bg, color: "#fff", fontSize: 13, fontWeight: 600,
-      boxShadow: "0 4px 20px rgba(0,0,0,.2)",
-      animation: "fadeUp .3s ease-out both",
-      maxWidth: "90%", textAlign: "center",
-    }}>
-      {message}
-    </div>
-  );
-}
-
-// ─── Shared UI ───────────────────────────────────────────────
-function Card({children,style,onClick,...props}){return <div onClick={onClick} {...props} style={{background:"var(--cd)",color:"var(--ink)",borderRadius:"var(--r)",border:"1px solid var(--bd)",boxShadow:"var(--sh)",padding:14,...style}}>{children}</div>}
-function Modal({open,onClose,title,children}){
-  const overlayRef=useRef(null);
-  useEffect(()=>{
-    if(!open)return;
-    const prevBodyOverflow=document.body.style.overflow;
-    const prevRootOverflow=document.getElementById("root")?.style.overflow;
-    document.body.style.overflow="hidden";
-    const rootEl=document.getElementById("root");
-    if(rootEl)rootEl.style.overflow="hidden";
-    return()=>{
-      document.body.style.overflow=prevBodyOverflow;
-      if(rootEl&&prevRootOverflow!==undefined)rootEl.style.overflow=prevRootOverflow;
-    };
-  },[open]);
-  if(!open||typeof document==="undefined")return null;
-  return createPortal(
-    <div ref={overlayRef} style={{position:"fixed",inset:0,zIndex:1000,height:"100dvh",display:"flex",flexDirection:"column",justifyContent:"flex-end",overscrollBehavior:"contain"}}>
-      <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.4)",backdropFilter:"blur(3px)"}}/>
-      <div style={{position:"relative",width:"100%",maxWidth:460,margin:"0 auto",background:"var(--cd)",color:"var(--ink)",borderRadius:"18px 18px 0 0",padding:"16px 16px calc(20px + env(safe-area-inset-bottom,8px))",maxHeight:"calc(100dvh - 8px)",display:"flex",flexDirection:"column",animation:"slideUp .28s ease-out both",boxShadow:"0 -6px 30px rgba(0,0,0,.12)"}}>
-        <div style={{width:28,height:3,background:"var(--ft)",borderRadius:2,margin:"0 auto 10px",flexShrink:0}}/>
-        {title&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,paddingBottom:10,borderBottom:"1px solid var(--bd)",flexShrink:0}}><h3 style={{fontFamily:"var(--fd)",fontSize:19,fontWeight:500}}>{title}</h3><button onClick={onClose} style={{padding:5,color:"var(--mt)"}}>{ic.x}</button></div>}
-        <div data-ms="1" style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",overscrollBehavior:"contain",touchAction:"pan-y",minHeight:0,paddingBottom:12}}>{children}</div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-function Btn({children,v="primary",onClick,style,disabled,full}){
-  const m={primary:{background:"linear-gradient(135deg,var(--g),var(--gd))",color:"#fff",fontWeight:600,boxShadow:"0 3px 12px rgba(184,149,106,.25)"},secondary:{background:"var(--cr)",color:"var(--ink)",border:"1px solid var(--bd)"},danger:{background:"rgba(184,92,92,.08)",color:"var(--er)"},ghost:{background:"transparent",color:"var(--gd)"}};
-  return <button disabled={disabled} onClick={onClick} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:7,padding:"11px 18px",borderRadius:"var(--rs)",fontSize:13,letterSpacing:".02em",transition:"all .2s",opacity:disabled?.4:1,width:full?"100%":"auto",...m[v],...style}}>{children}</button>;
-}
-function Fld({label,value,onChange,type="text",placeholder,options}){
-  const b={width:"100%",padding:"11px 13px",background:"var(--cr)",border:"1.5px solid var(--bd)",borderRadius:"var(--rs)",fontSize:14,color:"var(--ink)"};
-  return(<div style={{marginBottom:12}}>
-    {label&&<label style={{display:"block",fontSize:10,fontWeight:700,color:"var(--mt)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>{label}</label>}
-    {options?<select value={value||""} onChange={e=>onChange(e.target.value)} style={{...b,appearance:"none"}}>{options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}</select>
-    :type==="textarea"?<textarea value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{...b,resize:"vertical"}}/>
-    :<input type={type} value={value||""} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={b}/>}
-  </div>);
-}
-function Badge({children,c="gold"}){const m={gold:{b:"rgba(184,149,106,.1)",c:"var(--gd)"},green:{b:"rgba(107,158,104,.1)",c:"var(--ok)"},red:{b:"rgba(184,92,92,.08)",c:"var(--er)"},blue:{b:"rgba(90,130,180,.1)",c:"#5A82B4"},gray:{b:"rgba(160,160,160,.08)",c:"var(--mt)"},rose:{b:"rgba(212,160,160,.12)",c:"#B07070"}};const s=m[c]||m.gold;return <span style={{display:"inline-flex",padding:"2px 8px",borderRadius:12,fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase",background:s.b,color:s.c}}>{children}</span>}
 function Stars({v,onChange}){return <div style={{display:"flex",gap:2}}>{[1,2,3,4,5].map(i=><button key={i} onClick={()=>onChange?.(i)} style={{padding:1,color:i<=v?"var(--g)":"var(--ft)"}}>{i<=v?ic.star:ic.starO}</button>)}</div>}
 
 // ─── AUTH ────────────────────────────────────────────────────
@@ -601,10 +549,7 @@ function Guests() {
         </div>
       </Card>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "0 11px", background: "var(--cd)", border: "1px solid var(--bd)", borderRadius: "var(--rs)", marginBottom: 12 }}>
-        <span style={{ color: "var(--mt)" }}>{ic.search}</span>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Caută..." style={{ flex: 1, padding: "9px 0", fontSize: 13 }} />
-      </div>
+      <SearchBar value={search} onChange={setSearch} placeholder="Caută..." style={{ marginBottom: 12 }} />
 
       {Object.entries(grouped).map(([gn, gl]) => (
         <div key={gn} style={{ marginBottom: 12 }}>
@@ -884,7 +829,7 @@ function TablesList() {
               </div>
 
               {isPicking && <div style={{ marginTop: 10, padding: 10, borderRadius: "var(--rs)", background: "rgba(184,149,106,.04)", border: "1px solid var(--gl)" }}>
-                <input value={searchG} onChange={e => setSearchG(e.target.value)} placeholder="Caută invitat..." style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 12, marginBottom: 8 }} />
+                <SearchBar value={searchG} onChange={setSearchG} placeholder="Caută invitat..." style={{ marginBottom: 8 }} />
                 {avail.length === 0 ? <div style={{ fontSize: 11, color: "var(--mt)", textAlign: "center", padding: 8 }}>Toți invitații sunt așezați</div>
                   : <div style={{ maxHeight: 160, overflow: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
                     {avail.map(g => (
@@ -1195,10 +1140,7 @@ function TasksMod() {
       </div>
 
       {/* Task list */}
-      {list.length === 0 && <Card style={{ padding: 20, textAlign: "center" }}>
-        <div style={{ fontSize: 24, marginBottom: 6 }}>{filter === "done" ? "📋" : "🎉"}</div>
-        <div style={{ fontSize: 13, color: "var(--mt)" }}>{filter === "done" ? "Niciun task finalizat încă" : "Totul e la zi!"}</div>
-      </Card>}
+      {list.length === 0 && <EmptyState icon={filter === "done" ? "📋" : "🎉"} title={filter === "done" ? "Nicio sarcină" : "Excelent!"} subtitle={filter === "done" ? "Niciun task finalizat încă" : "Totul e la zi!"} />}
 
       {list.map((t) => {
         const over = new Date(t.due) < new Date() && t.status !== "done";
@@ -2266,18 +2208,12 @@ export default function App() {
 
   const overdueCount = s.tasks.filter(t => new Date(t.due) < new Date() && t.status !== "done").length;
 
-  const tabs = [{ k: "home", l: "Acasă", i: ic.home }, { k: "guests", l: "Invitați", i: ic.users }, { k: "tables", l: "Mese", i: ic.tbl }, { k: "budget", l: "Buget", i: ic.wallet }, { k: "tasks", l: "Tasks", i: ic.chk }, { k: "tools", l: "Unelte", i: ic.settings }];
   const titles = { home: "Dashboard", guests: "Invitați", tables: "Aranjare Mese", budget: "Buget", tasks: "Timeline", tools: "Unelte" };
 
   return (
-    <AppContext.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme, setTab }}>
+    <AppContext.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme, setTab, activeTab: tab }}>
       <div data-theme={theme} style={{ width: "100%", maxWidth: 460, margin: "0 auto", height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--ink)", opacity: ready ? 1 : 0, transition: "opacity .3s" }}>
-        <header style={{ height: "var(--hd)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px", borderBottom: "1px solid var(--bd)", background: theme === "dark" ? "rgba(26,24,22,.92)" : "rgba(255,253,248,.92)", backdropFilter: "blur(12px)", flexShrink: 0, zIndex: 100 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7 }}><img src={LOGO_XS} alt="Wedify" style={{ width: 28, height: 28, objectFit: "contain" }} /><span style={{ fontFamily: "var(--fd)", fontSize: 16, fontWeight: 500 }}>{titles[tab]}</span></div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <button onClick={() => setShowSettings(true)} style={{ padding: 5, color: "var(--mt)" }}>{ic.settings}</button>
-          </div>
-        </header>
+        <Header title={titles[tab]} onOpenSettings={() => setShowSettings(true)} />
 
         <main style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", paddingTop: 12, paddingBottom: "calc(var(--nv) + 20px)" }}>
           {tab === "home" && <Home />}
@@ -2288,20 +2224,9 @@ export default function App() {
           {tab === "tools" && <ToolsMod />}
         </main>
 
-        <nav style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 460, height: "var(--nv)", display: "flex", alignItems: "center", justifyContent: "space-around", background: theme === "dark" ? "rgba(26,24,22,.95)" : "rgba(255,253,248,.95)", backdropFilter: "blur(14px)", borderTop: "1px solid var(--bd)", paddingBottom: "env(safe-area-inset-bottom,4px)", zIndex: 100 }}>
-          {tabs.map(t => (
-            <button key={t.k} onClick={() => setTab(t.k)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, padding: "5px 2px", minWidth: 44, color: tab === t.k ? "var(--gd)" : "var(--mt)", transition: "all .2s", position: "relative" }}>
-              {tab === t.k && <div style={{ position: "absolute", top: -1, width: 18, height: 2, borderRadius: 1, background: "var(--g)" }} />}
-              {t.k === "tasks" && overdueCount > 0 && (
-                <div style={{ position: "absolute", top: 0, right: 2, width: 16, height: 16, borderRadius: "50%", background: "var(--er)", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>{overdueCount}</div>
-              )}
-              <span style={{ transform: tab === t.k ? "scale(1.08)" : "scale(1)", transition: "transform .2s" }}>{t.i}</span>
-              <span style={{ fontSize: 8, fontWeight: tab === t.k ? 700 : 500, letterSpacing: ".04em", textTransform: "uppercase" }}>{t.l}</span>
-            </button>
-          ))}
-        </nav>
+        <TabBar overdueCount={overdueCount} />
 
-        <Toast message={toast.message} visible={toast.visible} type={toast.type} />
+        <Toast message={toast.message} visible={toast.visible} type={toast.type} onHide={() => setToast(x => ({ ...x, visible: false }))} />
         <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       </div>
     </AppContext.Provider>
