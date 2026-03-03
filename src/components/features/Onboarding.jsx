@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { LOGO_SM } from "../lib/constants";
 import { mkid } from "../lib/utils";
-import { getSupabase } from "../lib/supabase-client";
 import { dbSync } from "../lib/db-sync";
 import { useData } from "../context/DataContext";
 import { useAuth } from "../context/AuthContext";
@@ -25,16 +24,18 @@ function Onboarding() {
   const canNext = step === 0 ? couple.length > 2 : step === 1 ? date : true;
 
   const finish = async () => {
-    const tablesCount = Math.ceil(guestCount / 8);
+    const budgetValue = Number(budget) || 15000;
+    const guestTarget = Math.max(1, Number(guestCount) || 1);
+    const tablesCount = Math.ceil(guestTarget / 8);
     const tables = Array.from({ length: tablesCount }, (_, i) => ({ id: mkid(), name: i === 0 ? "Masa Mirilor" : `Masa ${i}`, seats: i === 0 ? 6 : 8, shape: i === 0 ? "rectangular" : "round", notes: "" }));
     const budgetItems = [
-      { id: mkid(), cat: "Locație", planned: Math.round(budget * 0.2), spent: 0, vendor: venue, status: "unpaid", notes: "", payments: [] },
-      { id: mkid(), cat: "Catering", planned: Math.round(budget * 0.35), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
-      { id: mkid(), cat: "Fotograf/Video", planned: Math.round(budget * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
-      { id: mkid(), cat: "Muzică", planned: Math.round(budget * 0.08), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
-      { id: mkid(), cat: "Floristică", planned: Math.round(budget * 0.07), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
-      { id: mkid(), cat: "Rochie & Costum", planned: Math.round(budget * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
-      { id: mkid(), cat: "Altele", planned: Math.round(budget * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Locație", planned: Math.round(budgetValue * 0.2), spent: 0, vendor: venue, status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Catering", planned: Math.round(budgetValue * 0.35), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Fotograf/Video", planned: Math.round(budgetValue * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Muzică", planned: Math.round(budgetValue * 0.08), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Floristică", planned: Math.round(budgetValue * 0.07), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Rochie & Costum", planned: Math.round(budgetValue * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
+      { id: mkid(), cat: "Altele", planned: Math.round(budgetValue * 0.1), spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] },
     ];
     const tasks = [
       { id: mkid(), title: "Rezervă locația", due: "", status: "pending", prio: "high", cat: "Locație" },
@@ -45,34 +46,65 @@ function Onboarding() {
       { id: mkid(), title: "Alege muzica/DJ", due: "", status: "pending", prio: "low", cat: "Muzică" },
     ];
 
-    const payload = {
-      wedding: { couple, date, venue, budget: Number(budget), guestTarget: Math.max(1, Number(guestCount) || 1), program: [], theme: "" },
-      groups: ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"],
-      guests: [], tables, budget: budgetItems, tasks, vendors: [], onboarded: true,
-      activity: [{ id: mkid(), msg: "Nuntă configurată!", ts: new Date().toISOString() }],
-    };
-
-    dispatch({ type: "SET", p: payload });
-
-    const supabase = getSupabase();
-    const userId = user?.id;
-    if (!supabase || !userId) return;
-
     try {
       let currentWeddingId = weddingId;
+      const userId = user?.id;
+
       if (!currentWeddingId) {
-        const { data, error } = await supabase.from('weddings').insert({ user_id: userId, couple, date, venue, budget: Number(budget), guest_target: Math.max(1, Number(guestCount) || 1), onboarded: true }).select().single();
-        if (error) throw error;
-        currentWeddingId = data?.id;
-        if (currentWeddingId) setWeddingId(currentWeddingId);
+        const wedding = await dbSync.createWedding(userId, {
+          couple,
+          date,
+          venue,
+          budget: budgetValue,
+          guestTarget,
+          groups: ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"],
+          tags: ["Copil", "Cazare", "Parcare", "Din alt oraș", "Martor", "Naș/Nașă"],
+          program: [],
+          theme: "",
+        });
+        if (!wedding) {
+          showToast?.("Eroare la salvare. Încearcă din nou.", "error");
+          return;
+        }
+        currentWeddingId = wedding.id;
+        if (typeof setWeddingId === "function") setWeddingId(currentWeddingId);
       } else {
-        await dbSync.updateWedding(currentWeddingId, { couple, date, venue, budget: Number(budget), guestTarget: Math.max(1, Number(guestCount) || 1), onboarded: true, groups: payload.groups });
+        await dbSync.updateWedding(currentWeddingId, {
+          couple,
+          date,
+          venue,
+          budget: budgetValue,
+          guestTarget,
+          onboarded: true,
+          groups: ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"],
+        });
       }
+
+      let dbTables = [];
+      let dbBudget = [];
+      let dbTasks = [];
       if (currentWeddingId) {
-        await dbSync.bulkInsertTables(currentWeddingId, tables);
-        await dbSync.bulkInsertBudget(currentWeddingId, budgetItems);
-        await dbSync.bulkInsertTasks(currentWeddingId, tasks);
+        [dbTables, dbBudget, dbTasks] = await Promise.all([
+          dbSync.bulkInsertTables(currentWeddingId, tables),
+          dbSync.bulkInsertBudget(currentWeddingId, budgetItems),
+          dbSync.bulkInsertTasks(currentWeddingId, tasks),
+        ]);
       }
+
+      dispatch({
+        type: "SET",
+        p: {
+          wedding: { couple, date, venue, budget: budgetValue, guestTarget, program: [], theme: "" },
+          groups: ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"],
+          guests: [],
+          tables: dbTables.length > 0 ? dbTables : tables,
+          budget: dbBudget.length > 0 ? dbBudget : budgetItems,
+          tasks: dbTasks.length > 0 ? dbTasks : tasks,
+          vendors: [],
+          onboarded: true,
+          activity: [{ id: mkid(), msg: "Nuntă configurată!", ts: new Date().toISOString() }],
+        },
+      });
     } catch (error) {
       showToast?.(`Eroare onboarding: ${error.message}`, "error");
     }

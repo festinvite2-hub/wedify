@@ -52,6 +52,29 @@ async function loadAllData(userId) {
 }
 
 const dbSync = {
+  async createWedding(userId, data) {
+    const sb = getSupabase();
+    if (!sb || !userId) return null;
+    const { data: wedding, error } = await withRetry(() => sb.from('weddings').insert({
+      user_id: userId,
+      couple: data.couple || '',
+      date: data.date || null,
+      venue: data.venue || '',
+      budget: data.budget || 15000,
+      guest_target: Math.max(1, Number(data.guestTarget) || 100),
+      groups: data.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"],
+      tags: data.tags || ["Copil", "Cazare", "Parcare", "Din alt oraș", "Martor", "Naș/Nașă"],
+      onboarded: true,
+      program: data.program || [],
+      theme: data.theme || '',
+    }).select().single());
+    if (error) {
+      console.error('createWedding error:', error);
+      return null;
+    }
+    return wedding;
+  },
+
   async updateWedding(weddingId, data) {
     const supabase = getSupabase(); if (!supabase || !weddingId) return;
     const mapped = {};
