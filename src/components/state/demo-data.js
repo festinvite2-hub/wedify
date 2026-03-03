@@ -1,0 +1,51 @@
+const INITIAL_DATA = {
+  wedding:{couple:"Alexandra & Mihai",date:"2026-09-12",venue:"Palatul Mogoșoaia",budget:25000,guestTarget:120,program:[],theme:""},
+  groups:["Familie Mireasă","Familie Mire","Prieteni","Colegi"],
+  tags:["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă","Vegetarian","Plus one"],
+  onboarded: true,
+  activity: [],
+  guests:[
+    {id:"g1",name:"Maria Popescu",group:"Familie Mireasă",rsvp:"confirmed",dietary:"vegetarian",tid:null,notes:"",tags:["Vegetarian"]},
+    {id:"g2",name:"Ion Ionescu",group:"Familie Mire",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:["Naș/Nașă"]},
+    {id:"g3",name:"Elena Dragomir",group:"Prieteni",rsvp:"pending",dietary:"vegan",tid:null,notes:"",tags:["Din alt oraș","Cazare"]},
+    {id:"g4",name:"Andrei Vasile",group:"Colegi",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:[]},
+    {id:"g5",name:"Cristina Marin",group:"Familie Mireasă",rsvp:"declined",dietary:"",tid:null,notes:"",tags:[]},
+    {id:"g6",name:"Vlad Radu",group:"Prieteni",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:["Plus one"]},
+    {id:"g7",name:"Ana Stoica",group:"Familie Mire",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:["Martor"]},
+    {id:"g8",name:"George Popa",group:"Colegi",rsvp:"pending",dietary:"",tid:null,notes:"",tags:[]},
+    {id:"g9",name:"Diana Florea",group:"Prieteni",rsvp:"confirmed",dietary:"pescetarian",tid:null,notes:"",tags:["Din alt oraș"]},
+    {id:"g10",name:"Bogdan Neagu",group:"Familie Mireasă",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:[]},
+    {id:"g11",name:"Roxana Tudor",group:"Prieteni",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:["Copil"]},
+    {id:"g12",name:"Mihai D.",group:"Colegi",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:[]},
+  ],
+  tables:[
+    {id:"t1",name:"Masa Mirilor",seats:6,shape:"rectangular",notes:""},
+    {id:"t2",name:"Masa 1",seats:8,shape:"round",notes:""},
+    {id:"t3",name:"Masa 2",seats:8,shape:"round",notes:""},
+    {id:"t4",name:"Masa 3",seats:10,shape:"rectangular",notes:""},
+  ],
+  budget:[
+    {id:"b1",cat:"Locație",planned:5000,spent:4500,vendor:"Palatul Mogoșoaia",status:"paid",notes:"",payments:[]},
+    {id:"b2",cat:"Catering",planned:8000,spent:3000,vendor:"Chef's Table",status:"partial",notes:"",payments:[]},
+    {id:"b3",cat:"Fotograf",planned:2500,spent:1000,vendor:"ArtStudio",status:"partial",notes:"",payments:[]},
+    {id:"b4",cat:"Muzică",planned:2000,spent:0,vendor:"",status:"unpaid",notes:"",payments:[]},
+    {id:"b5",cat:"Floristică",planned:1500,spent:1500,vendor:"Flora Design",status:"paid",notes:"",payments:[]},
+    {id:"b6",cat:"Rochie",planned:3000,spent:2800,vendor:"Bridal House",status:"paid",notes:"",payments:[]},
+  ],
+  tasks:[
+    {id:"tk1",title:"Confirmă meniu final",due:"2026-08-01",status:"pending",prio:"high",cat:"Catering"},
+    {id:"tk2",title:"Probă rochie finală",due:"2026-08-15",status:"pending",prio:"high",cat:"Rochie"},
+    {id:"tk3",title:"Trimite invitațiile",due:"2026-07-01",status:"done",prio:"medium",cat:"Invitații"},
+    {id:"tk4",title:"Alege DJ-ul",due:"2026-06-15",status:"pending",prio:"medium",cat:"Muzică"},
+    {id:"tk5",title:"Comandă tort",due:"2026-08-20",status:"pending",prio:"low",cat:"Catering"},
+    {id:"tk6",title:"Aranjament floral",due:"2026-09-01",status:"pending",prio:"high",cat:"Floristică"},
+  ],
+  vendors:[
+    {id:"v1",name:"Palatul Mogoșoaia",cat:"Locație",phone:"+40212345678",email:"events@mogos.ro",status:"contracted",rating:5,notes:"Contract semnat"},
+    {id:"v2",name:"Chef's Table",cat:"Catering",phone:"+40723456789",email:"info@chefs.ro",status:"contracted",rating:4,notes:""},
+    {id:"v3",name:"ArtStudio Pro",cat:"Fotograf",phone:"",email:"",status:"contracted",rating:5,notes:"Foto+video"},
+    {id:"v4",name:"DJ MaxBeat",cat:"Muzică",phone:"+40756789012",email:"",status:"negotiating",rating:3,notes:""},
+  ],
+};
+
+export { INITIAL_DATA };
