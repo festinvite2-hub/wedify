@@ -1,320 +1,16 @@
-import { useState, useEffect, useCallback, useMemo, useRef, useReducer, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useReducer } from "react";
 import { createPortal } from "react-dom";
+import { LOGO_SM, LOGO_XS, PAY_TAG, CSS } from "./lib/constants";
+import { mkid, gCount, sumGuests, gTypeLabel, gTypeIcon, fmtD, fmtC, parseBudgetNotes, serializeBudgetNotes, loadTheme, saveTheme, generateGuestsPDF, generateTablesPDF, openPDF } from "./lib/utils";
+import { ic } from "./lib/icons";
+import { getSupabase } from "./lib/supabase-client";
+import { loadAllData, dbSync } from "./lib/db-sync";
+import { INITIAL_DATA, reducer } from "./state/reducer";
+import { AppContext, useApp } from "./context/AppContext";
 
 // ═══════════════════════════════════════════════════════════════
 // WEDIFY v1.0 — Wedding Organizer | Rebranded from Wedify v14
 // ═══════════════════════════════════════════════════════════════
-
-const Ctx = createContext(null);
-const mkid = () => "x" + Math.random().toString(36).slice(2, 10);
-const gCount = (g) => Math.max(1, Number(g?.count) || 1);
-const sumGuests = (list) => list.reduce((a, g) => a + gCount(g), 0);
-const gTypeLabel = (g) => { const c = gCount(g); if (c === 1) return "Single"; if (c === 2) return "Cuplu"; return `Familie (${c})`; };
-const gTypeIcon = (g) => { const c = gCount(g); if (c === 1) return "👤"; if (c === 2) return "👫"; return "👨‍👩‍👧"; };
-const fmtD = (d) => { try { return new Date(d).toLocaleDateString("ro-RO", { day: "numeric", month: "short", year: "numeric" }); } catch { return d; } };
-const fmtC = (n) => new Intl.NumberFormat("ro-RO", { style: "currency", currency: "EUR" }).format(n || 0);
-const PAY_TAG = "<!--WEDIFY_PAYMENTS:";
-const parseBudgetNotes = (raw) => {
-  const txt = raw || "";
-  const i = txt.indexOf(PAY_TAG);
-  if (i < 0) return { cleanNotes: txt, payments: [] };
-  const j = txt.indexOf("-->", i);
-  if (j < 0) return { cleanNotes: txt, payments: [] };
-  const payload = txt.slice(i + PAY_TAG.length, j).trim();
-  let payments = [];
-  try {
-    const decoded = decodeURIComponent(payload);
-    const parsed = JSON.parse(decoded);
-    if (Array.isArray(parsed)) payments = parsed;
-  } catch {}
-  const cleanNotes = (txt.slice(0, i) + txt.slice(j + 3)).trim();
-  return { cleanNotes, payments };
-};
-const serializeBudgetNotes = (cleanNotes, payments) => {
-  const base = (cleanNotes || "").trim();
-  if (!payments || payments.length === 0) return base;
-  const packed = encodeURIComponent(JSON.stringify(payments));
-  return `${base}${base ? "\n\n" : ""}${PAY_TAG}${packed}-->`;
-};
-
-const LOGO_SM = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAIAAAAiOjnJAAABAGlDQ1BpY2MAABiVY2BgPMEABCwGDAy5eSVFQe5OChGRUQrsDxgYgRAMEpOLCxhwA6Cqb9cgai/r4lGHC3CmpBYnA+kPQKxSBLQcaKQIkC2SDmFrgNhJELYNiF1eUlACZAeA2EUhQc5AdgqQrZGOxE5CYicXFIHU9wDZNrk5pckIdzPwpOaFBgNpDiCWYShmCGJwZ3AC+R+iJH8RA4PFVwYG5gkIsaSZDAzbWxkYJG4hxFQWMDDwtzAwbDuPEEOESUFiUSJYiAWImdLSGBg+LWdg4I1kYBC+wMDAFQ0LCBxuUwC7zZ0hHwjTGXIYUoEingx5DMkMekCWEYMBgyGDGQCm1j8/yRb+6wAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABmJLR0QA/wD/AP+gvaeTAAAAB3RJTUUH6gIbEikQwIDpKwAAKwNJREFUeNrtnXmYXUWZ/9+qs9997+7be3c2EkjIQkhAZBPZF1kUmUHEFXV0dJxxQH/qM+jMMCqOM844DCgOLiC4IggKYVMIAWJC9qU76e70drtv993v2U/V74/q7qwd0gmY7qY+z5M8954+2z31PW+99VbVWwAcDofD4XA4HA6Hw+FwOBwOh8PhcDgcDofD4XA4HA6Hw+FwOBwOh8PhcDgcDofD4XA4HA6Hw+FwOBwOh8PhcDgcDofD4XA4HA6Hw+FwOBwOh8PhcDgcDufEQCf7BjizFgRIFISTfRd/mV/KeSuRBIQQIoRKIqqN+kOaJCBwCd3Sk6cn+97eUriw3nwQAAVQJXFxS6Rquh7x/IpkOl5JdzMF0/G8xS2Rsu50DVfZnhzOpIgCro1oYZ80seWMOfGasHbEnTVZeMeCBPs8W9/st0V9/1YT9cvL2qIuoamQWh/TDIsKGEUC8p5MGaNDtYMQOB4NapIs4rLhso1+RdRkwaOUzBYLJp7sG5jxJEPKvHR4/Z6cabsAENTExri/vdbXnzMBwK8plJCK6bCdMUJhv5qvGIN5K+STAYympK8uqho2LVS9hRG5c6g6UjJO9m96E+DCOiEwQu21gdc6R23XQwgB0LLhbu8rWq7bmvIDAAaUjKqdgw5zp6IBJR6U8xUjFhAXNQXDPsF23E3dRdP2AGC0JC5tjb7IhcWpi2qUUtv1EICAEAGglGIEezLVkE9ujPt6c8actA8AUyAYoXRM6xvVZQHPrw9s6ip0Z3XmviMAQFC1XISoImLLJSf7l50o+GTfwAxmfjrcmvJ1ZCoAQAEUSWhM+AGAUFAlcShv1UU1VRSDmqyIGABqImpQE8u6c8a8+Mu7893ZKgKKELDDKYWwTyKEzgJVARfWcRPSJL+KX9w5ki/bbEvVcmJ+OeyXACCgymG/bLteLCAioEFNQEioDSsl3W1I+LJFK1e2MEIUQBb3Vxrz64O7B6sn+5e9OXBhHQ8I4eakvyYsB1Ux7JejfsmvSADQmanMqQ0CgOMRESNJEijCO/vLqizWRhXTJT3ZSiwo78lUAIBQGgsodVEfO2dT0ud5NFsyZ0cAgocbpowk4hVzYiXdzldtScQYg08R6+P+dFzL5I1USEuG1H0jlWLVtVxq2DQWkF1C/Yoc8YmOSzBAtmTJouARekpDeCCnW44HAKc1h7f1lmyXsADFTJcXd96nAGvZLWoK945UB3IHtd16snrMr6ycE82V3dqYsqwt9np3SZaET767pikuUUS391kIUMkI/uqVoTnpUMdAMRVWdcst6jYABFXZckjFdGdNLJ5brKnRlPAHVXHXQBkjBIiZFqxKokepYbuZgjkn7e/LGh4FAaNPXly7pFkDDKqE5tYoS9vU57dXPIoqhl3UnVXzEz1Zo2o5ABDxywFNIoQ2JHzpmFwTUSN+RRFx1SJ0ZiqN+1hTAAHURdVN3QUAIJRSChSAAon45UWNEVkUbQ82dxU0RbJc8rX3NS9MqxXLFTG4hDgeyZXd1fMC+bLVk62uaI9pMh4pmzVhHwDUhMW5taomCyNFs2vI6BrSsyUzFVHn1gVP9o8+TnhVOAVUWSgZruMdGg7IFKoe8RY2hDBGJcPNV5xV84K1EbFqepooUCCqjIEiUYC6iKhI0JwMNid9j60fbEn6DZsAQMgv/+bVjH1woMHz6Lx0CMar4JkFrwqnAKHQXuPvH93vXYmCIGBMKNUtd7hoSiLWZLE+JgPCezLmomYtqKHhMrFtIEDvXZMdKpKBUTMeUjZ1FRsSGqW0J1s5c27McSmhKBZQK4ZLgTLPfUV7vDNTNmzvZP/u44EL61hBLIbpl0OalKvYLLAJCM1Nh1RJKBkOBSjqdrZkZgp2xaIehb5RuyGudg7afTl354AtCuKq+f6K4e0e1FNReShv9o7qK9pjq+dH8lVSNtzRkjVhtBJB1aegvUPVGdo85MKaGtmitagxpFuebnkIgFJaqDg1UaUp6cOADZsqkhDSpEzBXD03WBOWH3pxNBKQNJnMrVWXtyqU0LUdxdEK7RqqEgor2qPDRevZrbm+EWO0bNnefuMUCymm4xV1hwvr7cJo2V7eHu3PGR6hCAGhMFq2cmU76pcbklrUL9VFVQC6a8D428vrzpyn6aZ3/aoIAKpYZFtvNZN3VBmdOSd0ybKU43lV06uJaJKISroDCAEAQggAFtaHMkXLsGZkPQhcWMeB45GK6Z7WHBnImYRSAJAkwSfLVdsbKhiyKAoIJAFSYZVQ8CsYY7Sz3/qfp4bXbMlbHq4NS7GgPFLxOgd116MjJXtvRr9yedLnkzHGuuV5hNSE1VhQ2T1QPqK5mhE2jAvreCAENSbUy5Ylhotu1fRcj3iE1oTVeFBSFcHzsCILiZDUM6z/Zn3e9VDnoF0xSa5iY4zKJto3YhZ1d++QsWugkq/asohVWdzcXS5UbNcjFGD5nNiWnoLlHNRIRAAYzZjm4YxQ/3SBNfvbawLxoNwxWMYIpcKqqgiyAMNFq3fExBiCqlgX84U0YSBvh/2y43qJoHRKvfr7TcWWhPranhwC5HpEFJAgYNslpu02J32CgPdmKuz8K+bGixWrY7ByYJQBI2CDS32yUB/XOjNVSqe1xngcawpQgIAqpiLay7uyACBgHPbTupgSCwiJkLSoKTy3Vu7IGK91lLfuM1RZTgRlSRHKphP1+/tHTQFBe21gS08BACwXAAAjAIBIQK7oXlCVaiJKKqLuy+p9o/rhqmqIadetjl+2LPaDZ7IdgxWEYDpL6+0lrBOJNLJj62NarjwWx6qNaCvnRp7ZlK1PqAvqfVt7qms2ZU3H9SliMiS3pPwl3dk1ULr49GTVQa5n7x2y56VDflWsjvcJEgoIUFNCzZZcVRZ0y1nfmWP90Ieo6vpVtR+7KNmSlB56sfDI2kEW+5jOvI2qQvaKn2AUO+KXT2+J7BooDxVMQuncumDEL7/WOSoJuD7uUyUBIarKWDfddEwdKTt+SUwnFN3yXto5WjZcSRQopZ5HKIBfEZsSvnhY6R6u9I0ceTgyu+fPXNp0y3lR1/V29Lu3fb/DnAkh07eR844A0jFNt8iJeCem4+UqdjqqzW8IiCLuHKxghJa0RQOqqAhQF5FHy05PVh8sWN3DuiYLi1sCO/v1XMVrSviGi5bjeqwhWRvRFjeHhgrWrv5yoeogdIShMhghSuET767/yIWJQtXxqHDHgz2ZgjUjXPi3hcXCCBFKV82NfOuWlq//vO/3m0YmfOETOCcsb48KWFi3ewQAVElsrwvIAgpqYm1UKVXdiu3KAs6WrEhAfn1vQRaF1fMjFcMZKXutSTVXdV/eNUomlzi7w8uWJb72vobRshULKN94dPCRl4cEDN5MGLo8+y0WK6FFjcGbz60TMV01z/+rV3Oud0KyYvXpQM4UMVrUFA77pKAmVk1XFLDjkT9uz9bEtJd35ruzhu3RiE/pHdGrFlElcbho7x4oY4RdQoYK5mS2h52/OaHddVOz43ohn/jc9sp3fteLTvh9+Ms99pN9A28tCIBQCKjiP17d+PuNOY94DXHp9JYAjLfIjg9WuBhBd7b60s6RvRmjqLsAOJO3NnUXaiNqsWp7xKOUEEINx3M8T5FwQXcLug1Au7IVvyYAHF0l6HNX1oc0QAiNlOi3H+vff+GZwCxvFTLn91//qu2VjlJRd9uSqueR1qTySgegE3PjJ44+a370sqXheFBUJMH1yLZ95o4B57U9eRifClaoWABg2k6+ggWMAQAonHdKcHNXUT9Sjw2ruK9YkThnQSBXsqNB6RuP9mcKpoDgxOzsX5TZLCzmjnz4wrqWpPTpHwz8801NHqFYQIr0JjgAFECThC9d17yyPWC7pD4u2rZLKVrR5iuZ5PM/Mv5csQAAIzxcNNkhhuWIAgaAdNzneOj8U2O/+3OWyejAMxNKY37loxfUVAwnHBCf3lJ+YuMomlGqgllcFWIEHoEz2iOfurj2iw/2JILCWXODVcvFCFfMN6G5HtSkb35g7r6sdcVdW6+4a9tXHx6wPaTbNFd2ZIF85YaGiF8BgFzFnIgOuISYjntKQygeVO7+bc/ChmAyJB+iKlZBf+iCmoaYQCjkK/S7TwwAzLzxybNTWMzJTQTlb36g6ecvj2zZV3nf2amwD3sEPEIHCzZMHmDErOWPJm0ws7K/6Zy6JzeM3rum3/EIRvS364d/9nI+7BMwRoZFG2Pi9asSACgdletjalAVRYw0WVjaFgv7pPWdowD02a0j16xMwQHeHrvtRQ3Bq8+IFKpOyCfe/1x2IG/OiPjCIczaViEC9B+3tisS+sz9ewOq+IWr60VMMYDhoPufG6qY7mQHUgAAfBT/iwIgBMNFd/2eAmb9KggAoHvIvGhJVJMRpUAJrYnKe4ZdjJAsCsmw2hD3Rf3yaMXa3lsCAIxgIGetnBP2CAzmLTZskAnsjmubWhKiKODXe6xvPNpHp3uM/cjMQh9LwMgj9NOXNpy1IHDrf+91PXLdqpqGqJirOAFN2LXPGMxbcCThMH/84iWJ950dyxbdf398IFM0j+jiUwr7Rqpo3D2iFDCCbNl+cWflujPDharnEpoIiNmC2TtqHNKpN9GZAwC/Wjd06wXpzfvKnkdZWOSdp8TeMd9f1h1Vke55apBQ78RDbieF2VYVChg8Qi9aEvvUJcn71mRf7SxEA/I1K2K67QECWcQv7iwD0MNjDQgBBTilPnjnjfUL6uUrV4Q/fGEt2z4Zh0fwX95dJhQhBB4Bv4paa1QYr1th3CAd2Ak4XLK39VWuPiM5vgXfcl7Ccb2QJj6xsbCxqzRDVQWzTFjMYZ9TG/jq9Y0buoz7nhkEgGtWJhsTouUQSUD5Knl+axGO5GAxqS1v94uYlqukrLuxAIZjjkiwE+7KmEXDEzCiFASMUuGxCoEe8P8ETDG/Wz/aVuNriKmEwiWnxxY3+RyXjOrk/meGYNr3NB+F2SMsFgsN++Sv39ioyeibj/ZVTTcVUa8/M6qbLgDyK8LajvK+UYNl4zgEVoTpqAQUMAZRQP15F465z4udMJMzB/OuLCJKKQKIaNIRd0YAGI81ESjQpzeNXr0yCQA3nZOwHC+giQ+vzQ0WTIzRjNXVLBIWAACgO65tWNaq3rsmu6GrDADvXZWoiwiWCxiBQ+DXr+QA4IhmiAmrNqKwnjiEcO+IBUetCg8BIyCU9AybkoApAABVJHTE3SgAIUAByaLgU8RN3eV9I+bt72ltjIsAtGvYeWRtFgDIDK0FAWCaO+/H7mGwPW97d/1Vy8Mv7Kj+33MZAGhM+K5ZGa0YLiDwq8IrncaGvWWYpCOFAgCgmF/wCMUIXEIH8keLShwOC+X352yMx45C+LAdAAiFdFS9bFl0SYuvNaX4ZDFTdNZ3Vi9cFKCUaKr40z8NVU1n5npXjGkqLJbhjlAQMPbIG/Tmswj75cuSHz0/MVx073580HI9APjAO1MRHy7qBAEA4IdeGmFu+2QFJotIUzClFCFkOTRbOnLjcTLYnjndG/+IXHf/0ey6qiTcfG7tDatiqTASBbyxy/zF1mxf1rp2VdyvAKHo9R7ziQ05gJmtKpiewhprn1O4fFmqO2tt6y0epVuPOexLW8Ofv6oWC/S+Z0Z39pUBYFFj4NKloYrhIoCAil/pqKzdlYejFpgmC5qMPAICBt0hhYoHMGVllXSX0jHjNJ7SFjAGQmBubeAr1zee0iB7Hhkukv/+Q+ax9SOEEoTwdWfFCaWaIjy3dcT2vJkyNuYoTDsfi41ui/il731kXnNSeUNVEQrpqPaVG+rjfrxmS/WnfxoUMAKAD51fI4tAKCAEHkE/fD4LkztMrEl41Yp4bUS0XSoKqGq4ZdOFqfdT6xb1KGIHFnQbAASMCIFzF8bvva29rUZwXbJnyL3t3u5HXxvGmALAlctjZ7b7XY+Olt3FzcGaiOKRGT9QbnoJi/XIzk8Hfv73C22PfO8PvTB50bIOkKAq/ctNzY1xsWfEu/uxPgDqEXr2gujZpwQqpgsUQprwh03lDV1FJtnJztOa8n3wvJRlE4QAY1QwCEvXMVUcdyw07xI6VHQAwHbpVStS3/zrBqCOJOAN3dZt93XuHa4IGLkeFTG+/syEYbs+RfjaLwf/44ne295dLzLFzWSmkbAEhAilK+dG7/9Em2W5X/5ZD0ze2mezCUQBf+39LQsbRMtBd/92IFMwMQIE6NbzUoh4QJEooLxO7n8uA0eKZ45BAQD97eX1UT+yPYoARISKVQ/Gk3NMCWYUMQLLofmyCwBXrkh9+fp02XD8qvDaXuPvHthTMhyMxu7n3EWR+fUKAtjYbby4I98/ar7aUfroRfXsgZzsMjl+pouwMAKP0tVzY9/46wZNQt/87WCZPf0j7YzG//3Te1vOmqciwA88P/LCjpwkYELhsuXxpS1qxaKU0oAmPPxSYd+IMdmpMAYKcMPq1IWnBp58vey4FCFAGPK6B1OJNUwgChQBCBhVTdKVNVfOCX/p2rqS7vhVYVuv9YWfdJnOWC8NpQCArl0Z96gnYPzw2lEKVBTQkxtHMEKXLk15lJ7IaMSTy7QQFquM5tT57rwxHVLxmq3VF7bnJxuGy1RFKfryDc0XLQ5QQE9vrt67ZgAj5HhEU6Rb3pliWT01GXdm7J++OAST+OwIASHQVuP/uytrX+moPLx2xK8JHgEMUKy44xebGrIIQEEWcU/WqgkpX7+x2XZcRUSZknf7gz1V02WqYkI/vSV4eouGKGzvN5/flgcANmb63qf7Vs0LzE/72Z4zkWkhLEoBI/yPVzeENFQ2yU/+ODyZZzWWFZ2iL1/ffOWyEKF0S4/9tV/2AFAWTr9+VWxOrWTYFAFIonDfs0O65UxWNqwyvf2aer+Mvv14pmy4ItsVoULVg6nqCgEABFQRIcAIhgru565IxwLgeABIuPOR/qGChfG4xBEAwDUrYyKmAhZ+/WqOjNsnhMDxyL1P93/g3HRQEwmdkY78yRcWe5oXnBZb0qRRAuv36Jv3lY44zZeNUREwvvPGliuXBykhuwfcL/y4y7BdFnRIBOUbz0ropgcAQVV4cVfl6U2TWj4BAwB87F31F5wa+L/nR7f3lf0KHguZUWDLJ03Jg2bFH/aLGEPVIkvbfMvblELVjfrFe9cMbegqsuYhjLcTr1ievHhJ2PFI94izZnMBxs0qGyvRn7N+t2H4Exc3nOzyOU5OvrAYZ80LAhCE0dObi3AkU8He9aAmf+sD7ZcsDgLA1j73sz/ck6taEwbppnNSdRHBcqkogO6ge54amkwbTIjvXBj9yLtir3bo964ZBACPsKyiQChUTAIwNWWxNyEWENnnqA87HoQ04ZVO/ccvDCEAj9DxS9PlraHPXpY2bVeTxcf/nNdtFx/g0BEKogBrdxVjAeGum9roiU39OClMF2GpMsIIlQ2yvU+HgztSWM1CCLSl/P/zkTlnz9cEjNZs0T/9g85c1R7reqPQktSuOSNSNggABDXhF+tyuwYqeBLLRyjUx7Q7rqm3HfqN3/azcX9scBVCQCitTj0xFbtObUQihCAEHqECAtNF331ykI4vbcIuPbfO9+nLGnIVWxHRUMl9YmMODm60ChhcDy48LRZUhJGye8d1zTPO2ZoGwmLDL7OmLOKy4RV1Bw6YX8WUQShcsjRxz8daTm2SDId+58mhLz7YpdsuGkt/AADwwfNrQxp2XKrKqDvrPvD8pD47oSAKwhevbWxLSf/7dPb17rIoAACQ8TnShILhTF1YFABQTUhyCUUAHqVBTfjt+uL2vsqEw04oxIPK125s2bavGtSwJgvPbi2OlA6a3Mys6bw6/+evavjeUwPfemwfBvSla1vYGWaKuk6+sFhZPr2pWLaIIiOMWVY7AABCgVCoi2hfv7H1325qTIbFVzqNT9zX8+MXMhgRGB8lTCgsbg5edFqwYngYgSIJ339mqGTYR3zF2cZPXVz/rtN8T2ysPPDcEAJgro/jUUIQRkAItZ3jiVDGg3IyJLkeBQSSgHJV+rMXh9lvRON9hffdNuflXWWPktqwWDDo4+sLcECVi8bFd/cH2777RP+23ooooH/+Zbcs4jvf10oowAzR1rQQFkbQNVz936eG59Vp714cZdslAZ/aEPjStS2P/uO8686MbO0z/unnmb+5r3NbbwkjtN8UUQCAD59fKwnU8WhAE17eXX1i4yg6krkSMBAKly5N3Hp+dOeAfdejvQQIjEfkHQ+5BBACjyLbpTAVF4u9CY0xJeoXXA8oAZ8qPLO13JczMBrr/ZQEfM/H51QM99evjly6NOxRsqFL3zlQnWipjEV9Mf7PD7U99lruyY2jLDqPEHz1kb0CRt+8eQ6dIRN2pkUnNKvOfvTHjOnR978jcd6iEKE0HlSifqFkuL9+Nff89vLGPWXT9RAa84HYgaxyOf/U2Or5vorhSgKyPLjn6WGAI6QsYlXMgvrAF66qsxz6r78eZJPcCR2LsNuu5xAiCYgQ4tGp9eeM5WSr1RQRdAswBseFpzflAEDAyPGoKonf/VBrW0q95Ovbbzw7HvMLjkef3JBj8X26/yzoWx9o25e17l3Tzwbvw7jB+9JDe79xc/v3PzH/b+/fU7XcKd3eX55pISwYr9QeeWno8deyrSlVFJFukqGiUzL2P8HDR7wQCrIgfOj8FPEIITQckB5Zl9/We4Sh4mPjSzXp/13fUBMW/u3RzLrd+f0lBwAAlkMcl2IZufQ4R60satIoUEKpIuBMwd09YACA49GasPKdW1uaE+rN3+0wHffSpVFCyL4R56VdJRi3rOxm/v6qhrqoctN3dsB4K3Ls+VBACL7w4z3fvHnOnTe2fv6Bzmk+3366CAvG60TdJtv69AO34wP8rUO2EwrXrEwsbFDyFVeR8HDJe+C5SYaKIwCKbn9P0xlt2iNr8w+8kGENtwN3sRxq2RT72fytqd08oSAJeEG9ZjnEpwhAqe1Sx6MA8O4l8a/ekC4b9Jb/2rNnSL9ocawxLgGC57aVWQSO0LE5IO87u+aqFfH3fnuHR8nhkTz29YsP7g2q4sRPOtmFNinTSFgw/u5OBHQm2miT7Rz2STedkzAtDwB8qviD5zKZonW4uWJbPnlx4zVnhF7uqN71mz6AIxSK5ZKK5WKkIJhaJx0TQVuN2hgXTZc8u6Vy8dLQgrT43x+ZE1DRoibtyY3Fu37VO1qxAdBFSyIY06oNz24rsLtgtuq8hdEvXJ3+1H1dLAPWZL/aJSRXtU92Qb0x00tYjGMZDcwe/fvOrmmKi7mKo8m4O2v9Yt0IHCZEESOX0OvOTH38oujeYfurD/dWLfdwe4AAKNCiTjEGhJAgTKFZw0zHsrZgWBU6Mu7dj/ev2ZK/4NRoPCjs6Hf++Vd9m3vKTKnNSW15q58S2jFo7eqvAgBGyCN0cXPo2x9s+ffHB9d1FI4+ym+mzNuZjsJ6Q5jDVBdRr1sZqZgeAqTJwi9fGamMd/FOIGBwCT1vUfz296TzFe+LD/X2ZA2M0eHzFJjURisORhpGhOUNOcbKhkWwzpwbEAS0sVs3bOfVzuK6juKBJ2c3du7CcEhDAGhdRwUAJAE5Hp1T67/n422/f7344z9mWAtjFnDyww3HAVu74f3npJJB0XaJIkFfzvndn0cBDlEV8ggsaw1//cZ6xyO3P9S/qbsk4ElmvyAAgKGiAwgwxn7lWF85Jr6mhLqoXtNt76VdZQDAGGEMGAH7n1Jga+Ssnh/wCDUd+uruCgA4Hm1MaPd8tG1g1L7zFz0w84e6TzDzhIUACKUNce3ypaGy6SJAPkX4/eulon7QKAbmuCxsCN19S5Mg4C/8uG/drhyT2pGhAACZgs3mmvqUY81qwTzCsxeEUhGhd8RZv6cMAK5HCQFCgf3P7qs2orSnFKB0IO/sGTYAoDaifvfWtoCK7niwx7S9mdVpc3RmoLAQAMCFp4WjfsH1qChAUadPjnW3je3DGlmLGoL/9eFmWcKf+7+eF3fmJoILR2Fg1HZcEDENacf6ZAgFAHT+wrCI0Z92Vtj4xCPec2uNGtQwwrgjY+mWWxNR7v5Ay9w66Wu/HOgYrAp49pgrmInCYk9/5Zyg41EK1KcIG7r0rmEdjXe3MbO0tCV0321tlMJt/7v3wJDVZDBR9uftikkEjGJ+GY5hBCnbYWlL6NRGbaTsPbEhD0dMN4IAANIRWcSAENUtd05N4D9vbVvaqv3ohfzvNozMGtdqghnpvPsVoT4mOi5BgBCC57YVgU3vAQqAPELfdVr87luatvUa//CT7v5R81hsFftztmhnS246KkYCCI6hCcYcrMuXRaNB/Mt1pV0DR1swgi2Gk6t65y8KXXRaOB7EL3cY//lkP8wi12qCGSYsVpCqhBVpLK5YNun2sYAqZbXSxy+q/+zlqUfW5u76Td/4GMBjKjeMwPG8rqy1vFVNhCV4oyYha5w2JbRzFwXyFe/htSMwSUOSXX/TPt0hKKwKhFJVFjfvs77y0D7DdtH0Xrzk+JhhwmLPv2J6ugUBGRAC06Ws28cjMD/t/9J1je01yt//aN/vNoyMdywe68nZHPmd/boH4VomLPoG+1MK165MNCXkh14a3bKvPFlgk62I0TFY/crDA+8/O+ZRum53/uG12bJhz0pVwYwTFrCZVS55ebf+wfOimbwdkPFN70jtGTQuXx5d3BJ4Zkvxcz/sGq1YrJE/pSJjBbylV6+aJB2RY34pV3UmC2WNzUZM+q9aGR7I2w88l4WjCpH95alN2ac2jUxsmP5L4hw3M09YzCTc+/RAXVRePU/DCG45N54tk5d2lL/x6O7urI6mkk3k8DPvHjR6Ru2WpNqY1HJVZzKLwgR3y/mJxqj8L48OdmX1Y7koHh+aMTYD7GQ/zLeOmScsRslw/uFHe9tr1HhQzJacfSOm4xGA/SNOjw+MwLDcVzv1JU2+xU2+Td2lI6aDFxDyKH3HKdFrV0b+tKv6kxcmHa16CBP7zD5v/RBmdHJbOlpx+nJWvuqMzZ06YX+FxSwMh16xLEIoPLExf/gJxwZ5BuRv3dyCMP6HH/Vky9ZMnrT8ljDz4lgT0PE+uIlxzCfurzBDsnFveV1ndeVc/4K0Hw6OZo2nN0b/7/rG9lrlnx7u68hUJssK8XZmRlssgLdgRBKb1zBSJjesiiOEnt9eEDBiaR3Hp5uiL1/XdP3q6Jd/1v/4huxMz5DG+cvBzNLt72ne9R/L370kDgcYLb8iffuWOVu+veyaM5IwA6f7/cWY8RbrreOVzkpjQvubS1ISFqoWrQ1LVyyP/8tftQRV4TP3dz2/PX/QnA7OwfA37iggAaNbzqv963PimiyYDh0qOL95bfRXr4zY7kzN68+ZFrAaUJPF1qSWCCoT23kNyDlRDtEQl9QxMlMDpEeB5eafLPqAxzsQ6fjEDbbQ18RXQg5uaSIQxnInTeGKLA5yyFFkfFYqy/YG44HciYjJiYR2OSeBqVsZdJRDD1tuHh3wiRu0MWaPxWJdL201gevOjOuW25tzf/vaENtIx0ciLGwIX748Yjtkyz7z2a1ZAPRX76xrSYj5sutQ7BHSkpB//3pp7e4cS6DdkvRfc2ZMN12/Kug2UUWhd8R67M9Z1n3ETr4gHbh0adT1vEyR/PzlDAAgwJ+6pB4QLeqeTxYwRvUxcfeA+aMXBgFgaWvk0qXhfMU2HPzTP2Zcj956Qb0qeUFV7BpxHnlp8GQ/yDeHGRx5PwRWhwzkzIhf/PCFqZ19VRgbvCXMSwcoBQRoe1+lOSEtbvZt7ikDAEbw9KZcOibfcHZyc0/12S1F20Nnzg/BuBXqzuqpoHTLeclntpR+sXb4l+uGFzRo93x8XsQvwfhOuwb1uqh03ar4hq4KjHUKkWe3Ft+7KnbZsvCLO0pPbco9s6l41RmxmF8CgJ6ssWfI/uzl6ZgfO54nYnh+a+6KZTFBwJu7qyf7Kb5pzKo4FgJwCVm/t3LBouiaLfnRsgMA8+sDn7ykniXYoJQsbgndt2agb9REAAhDxXSjAYkQ+OFzAwXdeaWj1JezClWHUsAYUUojfjHkE77/zIDpkLLp/mlH4Z0Lw1cuTzy2fgTGsozQiF8kIPx8bUYYT1c0XLJOaw7sHjQefS1b1t29w0Z31s1VHMP2bIds2VfOVchVZ0R//3qxarmnNgV6Rrzv/aF3tGyd7Ef4pjF7LBaMzSqGku7s6NffszLGNp4xx3dGmxYLyB6hbSk/AO0YHE+izKwcGVtymSVn78+Nly6lwKb+jee5Zf74PX8YPL1FW9YagvGJaAJGEj40O41he54HMJ7P7dWOQq5is68YwYMvDg3m3Dve0zCvLvCOUyIPvzSIjitJ87RlVgkLxlthj/05t3pBWJEEAFQb9umWt7TVDwBnLQj9ubNyyCFlw13c5H/HKdGF9cHPXN60ck4YDlynGcbykQKMzXfoyVojZXt+vQoTa1seaWRV1SSLm/3Xra69/T3NV69MwnhSPzp+k3c82L2wwXfHtQ3/9WQfWy9oNjUJZ5uwWNms6ygBJWfMCTbGtb68+cyW4up5YQBoSSov7S7CwUWIMBopO5ZNJBG1JGVKD8rlhzGyx1aaG9vieNRy8IELMB0RhEAW0aau0uae6s3npFQJT4QemGUdKVsv7igO5M2y4Qh4tg36mz2twgkwAkLI89tL5y8K74yYnQPG3iH9Q+fXXLwkMZCzdevQafjRgLi933htTxEAvvqwyTZO5PzUFMzSzk4MTI0FBL9CN+8zAPbXoYejSnhzT7Uzo3dm9JJBZBGbzv4ZXuNhM0Q8CrNxgPJss1gwXki/WTf6zlNC16yMvt5T3txdiQeFz1xe+/SmPMBBYUwACKoCG04lYFSo2rURVZPEib8qksgM1sRRN51Ts6FbP3CmFyGUHrQ8CgIAQQS2EKYkoD9uzx2Y6GsCjJE55VynM4NZaLEoAALoyppDBWe45Ji2BwCjZWK7bm/OONBceQRiAeX8RWGgMLfWXzGd2qj6sYvSn/lBB/srAnR6ixYPiOmoplu2LAlXrUi2prSv/KyLXcmjAICWtwXPaPfVRtTMeIrA+qhvRWugpJN4QGEzOw5PGZcKqUuaA6MVCyNMppqPa9ozq8INE7BGXzigdAyaO/qrAFAXUzd2VXcP7J8wzSzMDWelRYx2DujNKW1urW/1/NArneXNPWUBA6Wwen4s6hf2DplL20ILG8JLWvz9Oeeep/pMZ/9KO0tbw41xZe+wpUjSzv4KW1710mVJ1yOZgnNac2jt7tLh60MJSPjQhfUV06laRJGkzkx1NjUJZzmSgEU8VtdLoiBMoQMZHeffeJfOOG/3B3Fg9Gh/IuYD7As+IEbAuqsPDwqMzeM4oPd64rRHiSAcyz4cDofDeeuZnc77ZCSTyWg0Wi6X2deWlhZCiGXNnh666cNsiGNJkhQOh/G4ny6KYiQSEYSD3hnWqaeqqm3bE18VRTFN89gvpChKNBoNBAJvym2jWd0OnA3CEgRhwYIFCCFVVRVFEQShsbHxkBY++ypJUqlUYl8lSXJd17btaDQaiUTe8CrhcDidThuGEY/Hm5qajuM+A4FAMpk85JZmK7OhKnRdV1EU27ZTqVQoFKpWq7quG4bh8/laWlocx7Ftu7m5ORqNapqWyWR8Pl86nU4mk4ZhlEqlurq6YrHo8/kCgUAkEpEkybKs+vr6YDDoOI7rjkXM586d29fXZxhGsVhsb28fHR31+/3hcDgajbKThMNhSqlt26qqtrW1AYBt23V1daIoJpPJUqmUSqUsyzJNM51Oh0KhcDgcCATK5XIqlaqpqSkUCvF4PBKJaJqm6/oJPZFpwGywWAAwOjqaTqeZwsLhMPOi2tvbMcaEkIaGBtM0bduuVCoA0NLSMjIyghAqFArMzhmGgTGuqanx+Xye58ViMYRQNBolZH9AXJZlx3HYZ9u2EUKapsVisUwmE41GRVFkwhIEIRgMuq6r67rnedFodKKaDgaD5XJZFMVCoWDbdjweHx4ejkQiDQ0NrutSSuPxOMa4UCic7Mf5JjBLhFUsFiORiG3boij6fD7XdZkOcrmcruuapmGMm5qaWO2DMQ4GgzU1NY7jhEIhtjGRSLiuizE2DMOyLFVVe3t7mUPGKBQK6XQaAILBoGVZlmUlEon+/n7XdU3TVBQlk8lUq9W6ujq/3x8IBBBCoVBIkiQAqFarkiQJguC6LhN6MBjctGmT67o+n69QKOTzeUmSVFXt7++fkO+MZjZUhQzHcYrFomVZxWLRcRzP8zDGkiSVy2XLsnw+3/DwMDMkAEApzefzhmEQQjDG5XIZY5zNZkVRLJfLdXV1kiQNDAwceP5CoaCqaiAQkGV5cHCQEEIpLRaLAMCq4H379gEAU0+lUjFNE2Ocy+U8z7Nt23Ec5uEFAgFCiKqqlUrF8zzDMAKBADNvlmUZhnGyH+Sbw2xumEwVhBCltKmpiZVuPB7fuXPnGx7FzJhhGOl0eseOHQfWnkchlUqFw+GOjg5BEMZGms4uZo/FerNg1SjGWNf1ozvRLF7gOA7b3zTNiQjZG1KtViORCHP8j1GLHM6xMrtDWRwOh8PhcDgcDofD4XA4HA6Hw+FwOBwOh8PhcDgcDofD4XA4HA6Hw+FwOBwOh8PhcDgcDofD4XA4HA6Hw+FwOBwOh8PhcDgcDofD4XA4HA6Hw+FwOBwOh8PhcDgcDofD4XA4HA6Hw+FwOJw34P8D1EYtSxTwWcQAAAAedEVYdGljYzpjb3B5cmlnaHQAR29vZ2xlIEluYy4gMjAxNqwLMzgAAAAUdEVYdGljYzpkZXNjcmlwdGlvbgBzUkdCupBzBwAAAABJRU5ErkJggg==";
-const LOGO_XS = "data:image/png;base64,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";
-
-const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
-:root{
---g:#B8956A;--gl:#DCCBAA;--gd:#8A6D47;
---cr:#FAF6F0;--cr2:#EDE7DD;--iv:#FFFDF8;
---ink:#1A1A1A;--gr:#6B6B6B;--mt:#9A9A9A;--ft:#D2CCC2;
---ok:#6B9E68;--wn:#C9A032;--er:#B85C5C;
---cd:#FFFFFF;--bg:var(--iv);--bd:#E5DFD5;--sh:0 2px 14px rgba(0,0,0,.05);
---r:14px;--rs:10px;--hd:54px;--nv:66px;
---f:'DM Sans',-apple-system,sans-serif;--fd:'Playfair Display',Georgia,serif;
-}
-[data-theme="dark"]{
---g:#C9A87A;--gl:#E0D0B8;--gd:#B89060;
---cr:#2A2520;--cr2:#332D27;--iv:#1A1816;
---ink:#E8E0D6;--gr:#B0A898;--mt:#7B7370;--ft:#3A3530;
---ok:#7DB87A;--wn:#D4B040;--er:#D07070;
---cd:#22201C;--bg:#1A1816;--bd:#3A3530;--sh:0 2px 14px rgba(0,0,0,.2);
-}
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body,#root{height:100%;width:100%;font-family:var(--f);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
-#root{overflow:hidden}
-input,select,textarea,button{font-family:var(--f);font-size:15px;border:none;outline:none;background:none;color:var(--ink)}
-button{cursor:pointer}
-::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--gl);border-radius:3px}
-@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
-@keyframes spin{to{transform:rotate(360deg)}}
-.fu{animation:fadeUp .35s ease-out both}
-`;
-
-const ic = {
-  home:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>,
-  users:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
-  tbl:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>,
-  wallet:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
-  chk:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
-  brief:<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>,
-  plus:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-  x:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-  search:<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-  trash:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
-  heart:<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>,
-  lock:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-  ring:<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="14" r="7"/><path d="M9.17 7.08L7 2l2.5 2L12 2l2.5 2L17 2l-2.17 5.08"/></svg>,
-  logout:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-  chevD:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>,
-  mail:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22,4 12,13 2,4"/></svg>,
-  shield:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-  star:<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
-  starO:<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
-  settings:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
-  edit:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-  moon:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
-  sun:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
-  tag:<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
-  chevD:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>,
-};
-
-// ─── Supabase Client ──────────────────────────────────────────
-// Uses @supabase/ssr for browser client
-import { createBrowserClient } from '@supabase/ssr';
-
-let _supabase = null;
-function getSupabase() {
-  if (_supabase) return _supabase;
-  const url = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_URL;
-  const key = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (url && key) {
-    _supabase = createBrowserClient(url, key);
-  }
-  return _supabase;
-}
-
-// ─── Supabase Data Layer ──────────────────────────────────────
-async function loadAllData(userId) {
-  const sb = getSupabase();
-  if (!sb) return null;
-  const { data: wedding } = await sb.from('weddings').select('*').eq('user_id', userId).single();
-  if (!wedding) return null;
-  const [g, t, b, tk, v] = await Promise.all([
-    sb.from('guests').select('*').eq('wedding_id', wedding.id).order('created_at'),
-    sb.from('tables').select('*').eq('wedding_id', wedding.id).order('sort_order'),
-    sb.from('budget_items').select('*').eq('wedding_id', wedding.id).order('created_at'),
-    sb.from('tasks').select('*').eq('wedding_id', wedding.id).order('due'),
-    sb.from('vendors').select('*').eq('wedding_id', wedding.id).order('created_at'),
-  ]);
-  return {
-    wedding: {
-      couple: wedding.couple || '', date: wedding.date || '', venue: wedding.venue || '',
-      budget: Number(wedding.budget) || 15000,
-      guestTarget: Math.max(1, Number(wedding.guest_target) || Number(wedding.guestTarget) || 100),
-      program: Array.isArray(wedding.program) ? wedding.program : [],
-      theme: wedding.theme || '',
-    },
-    weddingId: wedding.id,
-    groups: wedding.groups || ["Familie Mireasă","Familie Mire","Prieteni","Colegi"],
-    tags: wedding.tags || ["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă"],
-    onboarded: wedding.onboarded || false,
-    guests: (g.data || []).map(x => ({ ...x, tid: x.table_id, group: x.group, count: x.count || 1 })),
-    tables: (t.data || []).map(x => ({ ...x })),
-    budget: (b.data || []).map(x => { const parsed = parseBudgetNotes(x.notes || ""); return { ...x, cat: x.category, notes: parsed.cleanNotes, payments: parsed.payments || [] }; }),
-    tasks: (tk.data || []).map(x => ({ ...x, prio: x.priority })),
-    vendors: (v.data || []),
-    activity: [{ id: mkid(), msg: "Date încărcate", ts: new Date().toISOString() }],
-  };
-}
-
-// Supabase sync helper — fire & forget DB writes
-const dbSync = {
-  async updateWedding(weddingId, data) {
-    const sb = getSupabase(); if (!sb || !weddingId) return;
-    const mapped = {};
-    if (data.couple !== undefined) mapped.couple = data.couple;
-    if (data.date !== undefined) mapped.date = data.date;
-    if (data.venue !== undefined) mapped.venue = data.venue;
-    if (data.budget !== undefined) mapped.budget = data.budget;
-    if (data.groups !== undefined) mapped.groups = data.groups;
-    if (data.tags !== undefined) mapped.tags = data.tags;
-    if (data.onboarded !== undefined) mapped.onboarded = data.onboarded;
-    if (data.program !== undefined) mapped.program = data.program;
-    if (data.theme !== undefined) mapped.theme = data.theme;
-    if (data.guestTarget !== undefined) mapped.guest_target = Math.max(1, Number(data.guestTarget) || 1);
-    if (Object.keys(mapped).length > 0) await sb.from('weddings').update(mapped).eq('id', weddingId);
-  },
-  async addGuest(weddingId, guest) {
-    const sb = getSupabase(); if (!sb || !weddingId) return null;
-    const { data } = await sb.from('guests').insert({
-      wedding_id: weddingId, name: guest.name, group: guest.group || 'Prieteni',
-      rsvp: guest.rsvp || 'pending', dietary: guest.dietary || '', tags: guest.tags || [],
-      notes: guest.notes || '', table_id: guest.tid || null, count: guest.count || 1,
-    }).select().single();
-    return data;
-  },
-  async updateGuest(id, data) {
-    const sb = getSupabase(); if (!sb) return;
-    const mapped = {};
-    if (data.name !== undefined) mapped.name = data.name;
-    if (data.group !== undefined) mapped.group = data.group;
-    if (data.rsvp !== undefined) mapped.rsvp = data.rsvp;
-    if (data.dietary !== undefined) mapped.dietary = data.dietary;
-    if (data.tags !== undefined) mapped.tags = data.tags;
-    if (data.notes !== undefined) mapped.notes = data.notes;
-    if (data.tid !== undefined) mapped.table_id = data.tid;
-    if (data.count !== undefined) mapped.count = data.count;
-    if (Object.keys(mapped).length > 0) await sb.from('guests').update(mapped).eq('id', id);
-  },
-  async deleteGuest(id) { const sb = getSupabase(); if (sb) await sb.from('guests').delete().eq('id', id); },
-  async addTable(weddingId, table) {
-    const sb = getSupabase(); if (!sb || !weddingId) return null;
-    const { data } = await sb.from('tables').insert({
-      wedding_id: weddingId, name: table.name, seats: table.seats || 8,
-      shape: table.shape || 'round', notes: table.notes || '',
-    }).select().single();
-    return data;
-  },
-  async updateTable(id, data) {
-    const sb = getSupabase(); if (!sb) return;
-    const mapped = {};
-    if (data.name !== undefined) mapped.name = data.name;
-    if (data.seats !== undefined) mapped.seats = data.seats;
-    if (data.shape !== undefined) mapped.shape = data.shape;
-    if (data.notes !== undefined) mapped.notes = data.notes;
-    if (Object.keys(mapped).length > 0) await sb.from('tables').update(mapped).eq('id', id);
-  },
-  async deleteTable(id) {
-    const sb = getSupabase(); if (!sb) return;
-    await sb.from('guests').update({ table_id: null }).eq('table_id', id);
-    await sb.from('tables').delete().eq('id', id);
-  },
-  async addBudgetItem(weddingId, item) {
-    const sb = getSupabase(); if (!sb || !weddingId) return null;
-    const { data } = await sb.from('budget_items').insert({
-      wedding_id: weddingId, category: item.cat, planned: item.planned || 0,
-      spent: item.spent || 0, vendor: item.vendor || '', status: item.status || 'unpaid', notes: item.notes || '',
-    }).select().single();
-    return data;
-  },
-  async updateBudgetItem(id, data) {
-    const sb = getSupabase(); if (!sb) return;
-    const mapped = {};
-    if (data.cat !== undefined) mapped.category = data.cat;
-    if (data.planned !== undefined) mapped.planned = data.planned;
-    if (data.spent !== undefined) mapped.spent = data.spent;
-    if (data.vendor !== undefined) mapped.vendor = data.vendor;
-    if (data.status !== undefined) mapped.status = data.status;
-    if (data.notes !== undefined) mapped.notes = data.notes;
-    if (Object.keys(mapped).length > 0) await sb.from('budget_items').update(mapped).eq('id', id);
-  },
-  async deleteBudgetItem(id) { const sb = getSupabase(); if (sb) await sb.from('budget_items').delete().eq('id', id); },
-  async addTask(weddingId, task) {
-    const sb = getSupabase(); if (!sb || !weddingId) return null;
-    const { data } = await sb.from('tasks').insert({
-      wedding_id: weddingId, title: task.title, due: task.due || null,
-      status: task.status || 'pending', priority: task.prio || 'medium', category: task.cat || '',
-    }).select().single();
-    return data;
-  },
-  async updateTask(id, data) {
-    const sb = getSupabase(); if (!sb) return;
-    const mapped = {};
-    if (data.title !== undefined) mapped.title = data.title;
-    if (data.due !== undefined) mapped.due = data.due || null;
-    if (data.status !== undefined) mapped.status = data.status;
-    if (data.prio !== undefined) mapped.priority = data.prio;
-    if (data.cat !== undefined) mapped.category = data.cat;
-    if (Object.keys(mapped).length > 0) await sb.from('tasks').update(mapped).eq('id', id);
-  },
-  async deleteTask(id) { const sb = getSupabase(); if (sb) await sb.from('tasks').delete().eq('id', id); },
-  async addVendor(weddingId, vendor) {
-    const sb = getSupabase(); if (!sb || !weddingId) return null;
-    const { data } = await sb.from('vendors').insert({
-      wedding_id: weddingId, name: vendor.name, category: vendor.category || '',
-      phone: vendor.phone || '', email: vendor.email || '', status: vendor.status || 'potential',
-      rating: vendor.rating || 0, notes: vendor.notes || '',
-    }).select().single();
-    return data;
-  },
-  async updateVendor(id, data) {
-    const sb = getSupabase(); if (!sb) return;
-    const mapped = { ...data };
-    if (Object.keys(mapped).length > 0) await sb.from('vendors').update(mapped).eq('id', id);
-  },
-  async deleteVendor(id) { const sb = getSupabase(); if (sb) await sb.from('vendors').delete().eq('id', id); },
-  async bulkInsertGuests(weddingId, guests) {
-    const sb = getSupabase(); if (!sb || !weddingId) return [];
-    const rows = guests.map(g => ({
-      wedding_id: weddingId, name: g.name, group: g.group || 'Prieteni',
-      rsvp: g.rsvp || 'pending', dietary: g.dietary || '', tags: g.tags || [],
-      notes: g.notes || '', table_id: g.tid || null,
-    }));
-    const { data } = await sb.from('guests').insert(rows).select();
-    return data || [];
-  },
-  async bulkInsertTables(weddingId, tables) {
-    const sb = getSupabase(); if (!sb || !weddingId) return [];
-    const rows = tables.map(t => ({
-      wedding_id: weddingId, name: t.name, seats: t.seats || 8,
-      shape: t.shape || 'round', notes: t.notes || '',
-    }));
-    const { data } = await sb.from('tables').insert(rows).select();
-    return data || [];
-  },
-  async bulkInsertBudget(weddingId, items) {
-    const sb = getSupabase(); if (!sb || !weddingId) return [];
-    const rows = items.map(b => ({
-      wedding_id: weddingId, category: b.cat, planned: b.planned || 0,
-      spent: b.spent || 0, vendor: b.vendor || '', status: b.status || 'unpaid', notes: b.notes || '',
-    }));
-    const { data } = await sb.from('budget_items').insert(rows).select();
-    return data || [];
-  },
-  async bulkInsertTasks(weddingId, tasks) {
-    const sb = getSupabase(); if (!sb || !weddingId) return [];
-    const rows = tasks.map(t => ({
-      wedding_id: weddingId, title: t.title, due: t.due || null,
-      status: t.status || 'pending', priority: t.prio || 'medium', category: t.cat || '',
-    }));
-    const { data } = await sb.from('tasks').insert(rows).select();
-    return data || [];
-  },
-};
-
-// Persistence fallback for themes (local only)
-async function loadTheme() {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) return localStorage.getItem("wedify_theme") || "light";
-  } catch {}
-  return "light";
-}
-async function saveTheme(t) {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) localStorage.setItem("wedify_theme", t);
-  } catch {}
-}
 
 // ─── Confirm Dialog ──────────────────────────────────────────
 function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
@@ -350,103 +46,6 @@ function Toast({ message, visible, type = "info" }) {
       {message}
     </div>
   );
-}
-
-// ─── PDF Export Helper ───────────────────────────────────────
-function generateGuestsPDF(guests, wedding) {
-  const conf = guests.filter(g => g.rsvp === "confirmed");
-  const pend = guests.filter(g => g.rsvp === "pending");
-  const decl = guests.filter(g => g.rsvp === "declined");
-  const groups = {};
-  conf.forEach(g => { const k = g.group || "Altele"; if (!groups[k]) groups[k] = []; groups[k].push(g); });
-
-  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lista Invitați - ${wedding.couple}</title>
-  <style>
-    body{font-family:'Segoe UI',sans-serif;padding:40px;color:#1a1a1a;max-width:800px;margin:0 auto}
-    h1{font-family:Georgia,serif;font-size:28px;font-weight:400;color:#8A6D47;margin-bottom:4px}
-    .sub{color:#999;font-size:13px;margin-bottom:30px}
-    .stats{display:flex;gap:20px;margin-bottom:30px;padding:16px;background:#FAF6F0;border-radius:10px}
-    .stat{text-align:center;flex:1}.stat-v{font-size:24px;font-weight:700;color:#B8956A}.stat-l{font-size:11px;color:#999;text-transform:uppercase}
-    h2{font-size:16px;color:#8A6D47;margin:24px 0 10px;border-bottom:1px solid #E5DFD5;padding-bottom:6px}
-    table{width:100%;border-collapse:collapse;margin-bottom:20px}
-    th{text-align:left;font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.05em;padding:6px 10px;border-bottom:2px solid #E5DFD5}
-    td{padding:8px 10px;border-bottom:1px solid #F0EAE0;font-size:13px}
-    .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
-    .b-conf{background:rgba(107,158,104,.12);color:#6B9E68}
-    .b-pend{background:rgba(90,130,180,.12);color:#5A82B4}
-    .b-decl{background:rgba(184,92,92,.1);color:#B85C5C}
-    .b-diet{background:rgba(212,160,160,.12);color:#B07070;margin-left:4px}
-    .footer{margin-top:40px;text-align:center;font-size:11px;color:#ccc}
-    @media print{body{padding:20px}.stats{break-inside:avoid}}
-  </style></head><body>
-  <h1>Lista Invitați</h1>
-  <div class="sub">${wedding.couple} · ${fmtD(wedding.date)} · ${wedding.venue}</div>
-  <div class="stats">
-    <div class="stat"><div class="stat-v">${guests.length}</div><div class="stat-l">Total</div></div>
-    <div class="stat"><div class="stat-v">${conf.length}</div><div class="stat-l">Confirmați</div></div>
-    <div class="stat"><div class="stat-v">${pend.length}</div><div class="stat-l">Așteptare</div></div>
-    <div class="stat"><div class="stat-v">${decl.length}</div><div class="stat-l">Refuz</div></div>
-  </div>`;
-
-  Object.entries(groups).forEach(([name, list]) => {
-    html += `<h2>${name} (${list.length})</h2><table><tr><th>Nr</th><th>Nume</th><th>Status</th><th>Restricții</th></tr>`;
-    list.forEach((g, i) => {
-      const sc = g.rsvp === "confirmed" ? "conf" : g.rsvp === "pending" ? "pend" : "decl";
-      const sl = g.rsvp === "confirmed" ? "Confirmat" : g.rsvp === "pending" ? "Așteptare" : "Refuzat";
-      html += `<tr><td>${i + 1}</td><td><b>${g.name}</b></td><td><span class="badge b-${sc}">${sl}</span></td><td>${g.dietary ? `<span class="badge b-diet">${g.dietary}</span>` : "—"}</td></tr>`;
-    });
-    html += `</table>`;
-  });
-
-  html += `<div class="footer">Generat de Wedify · ${new Date().toLocaleDateString("ro-RO")}</div></body></html>`;
-  return html;
-}
-
-function generateTablesPDF(tables, guests, wedding) {
-  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Plan Mese - ${wedding.couple}</title>
-  <style>
-    body{font-family:'Segoe UI',sans-serif;padding:40px;color:#1a1a1a;max-width:800px;margin:0 auto}
-    h1{font-family:Georgia,serif;font-size:28px;font-weight:400;color:#8A6D47;margin-bottom:4px}
-    .sub{color:#999;font-size:13px;margin-bottom:30px}
-    .table-card{border:1px solid #E5DFD5;border-radius:12px;padding:16px;margin-bottom:14px;break-inside:avoid}
-    .table-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-    .table-nm{font-size:16px;font-weight:700}.table-info{font-size:12px;color:#999}
-    .guest-chip{display:inline-block;padding:4px 12px;margin:3px;border-radius:14px;font-size:12px;background:#FAF6F0;border:1px solid #E5DFD5}
-    .diet-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#B85C5C;margin-left:4px;vertical-align:middle}
-    .empty{color:#ccc;font-style:italic;font-size:12px}
-    .summary{display:flex;gap:20px;margin-bottom:24px;padding:16px;background:#FAF6F0;border-radius:10px}
-    .sval{font-size:22px;font-weight:700;color:#B8956A}.slbl{font-size:11px;color:#999;text-transform:uppercase}
-    .footer{margin-top:40px;text-align:center;font-size:11px;color:#ccc}
-  </style></head><body>
-  <h1>Plan Aranjare Mese</h1>
-  <div class="sub">${wedding.couple} · ${fmtD(wedding.date)} · ${wedding.venue}</div>
-  <div class="summary">
-    <div style="flex:1;text-align:center"><div class="sval">${tables.length}</div><div class="slbl">Mese</div></div>
-    <div style="flex:1;text-align:center"><div class="sval">${tables.reduce((a, t) => a + t.seats, 0)}</div><div class="slbl">Locuri total</div></div>
-    <div style="flex:1;text-align:center"><div class="sval">${guests.filter(g => g.tid).length}</div><div class="slbl">Așezați</div></div>
-    <div style="flex:1;text-align:center"><div class="sval">${guests.filter(g => !g.tid && g.rsvp === "confirmed").length}</div><div class="slbl">Nealocați</div></div>
-  </div>`;
-
-  tables.forEach(t => {
-    const seated = guests.filter(g => g.tid === t.id);
-    html += `<div class="table-card"><div class="table-hd"><div><span class="table-nm">${t.name}</span></div><div class="table-info">${t.shape === "round" ? "Rotundă" : "Dreptunghiulară"} · ${seated.length}/${t.seats} locuri</div></div>`;
-    if (seated.length > 0) {
-      seated.forEach(g => {
-        html += `<span class="guest-chip">${g.name}${g.dietary ? '<span class="diet-dot"></span>' : ''}</span>`;
-      });
-    } else {
-      html += `<div class="empty">Niciun invitat alocat</div>`;
-    }
-    html += `</div>`;
-  });
-
-  html += `<div class="footer">Generat de Wedify · ${new Date().toLocaleDateString("ro-RO")}</div></body></html>`;
-  return html;
-}
-
-function openPDF(html) {
-  const w = window.open("", "_blank");
-  if (w) { w.document.write(html); w.document.close(); w.print(); }
 }
 
 // ─── Shared UI ───────────────────────────────────────────────
@@ -657,7 +256,7 @@ function AccessMgr({open,onClose,whitelist,setWhitelist}){
 
 // ─── Wedding Settings ────────────────────────────────────────
 function SettingsModal({open,onClose}){
-  const{s,d,theme,setTheme}=useContext(Ctx);
+  const{s,d,theme,setTheme}=useApp();
   const[f,setF]=useState({});
   useEffect(()=>{if(open)setF({...s.wedding})},[open]);
   const u=k=>v=>setF(x=>({...x,[k]:v}));
@@ -738,115 +337,11 @@ function SettingsModal({open,onClose}){
 // ═══════════════════════════════════════════════════════════════
 // DATA + REDUCER
 // ═══════════════════════════════════════════════════════════════
-const DATA = {
-  wedding:{couple:"Alexandra & Mihai",date:"2026-09-12",venue:"Palatul Mogoșoaia",budget:25000,guestTarget:120,program:[],theme:""},
-  groups:["Familie Mireasă","Familie Mire","Prieteni","Colegi"],
-  tags:["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă","Vegetarian","Plus one"],
-  onboarded: true,
-  activity: [],
-  guests:[
-    {id:"g1",name:"Maria Popescu",group:"Familie Mireasă",rsvp:"confirmed",dietary:"vegetarian",tid:null,notes:"",tags:["Vegetarian"]},
-    {id:"g2",name:"Ion Ionescu",group:"Familie Mire",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:["Naș/Nașă"]},
-    {id:"g3",name:"Elena Dragomir",group:"Prieteni",rsvp:"pending",dietary:"vegan",tid:null,notes:"",tags:["Din alt oraș","Cazare"]},
-    {id:"g4",name:"Andrei Vasile",group:"Colegi",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:[]},
-    {id:"g5",name:"Cristina Marin",group:"Familie Mireasă",rsvp:"declined",dietary:"",tid:null,notes:"",tags:[]},
-    {id:"g6",name:"Vlad Radu",group:"Prieteni",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:["Plus one"]},
-    {id:"g7",name:"Ana Stoica",group:"Familie Mire",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:["Martor"]},
-    {id:"g8",name:"George Popa",group:"Colegi",rsvp:"pending",dietary:"",tid:null,notes:"",tags:[]},
-    {id:"g9",name:"Diana Florea",group:"Prieteni",rsvp:"confirmed",dietary:"pescetarian",tid:null,notes:"",tags:["Din alt oraș"]},
-    {id:"g10",name:"Bogdan Neagu",group:"Familie Mireasă",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:[]},
-    {id:"g11",name:"Roxana Tudor",group:"Prieteni",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:["Copil"]},
-    {id:"g12",name:"Mihai D.",group:"Colegi",rsvp:"confirmed",dietary:"",tid:null,notes:"",tags:[]},
-  ],
-  tables:[
-    {id:"t1",name:"Masa Mirilor",seats:6,shape:"rectangular",notes:""},
-    {id:"t2",name:"Masa 1",seats:8,shape:"round",notes:""},
-    {id:"t3",name:"Masa 2",seats:8,shape:"round",notes:""},
-    {id:"t4",name:"Masa 3",seats:10,shape:"rectangular",notes:""},
-  ],
-  budget:[
-    {id:"b1",cat:"Locație",planned:5000,spent:4500,vendor:"Palatul Mogoșoaia",status:"paid",notes:"",payments:[]},
-    {id:"b2",cat:"Catering",planned:8000,spent:3000,vendor:"Chef's Table",status:"partial",notes:"",payments:[]},
-    {id:"b3",cat:"Fotograf",planned:2500,spent:1000,vendor:"ArtStudio",status:"partial",notes:"",payments:[]},
-    {id:"b4",cat:"Muzică",planned:2000,spent:0,vendor:"",status:"unpaid",notes:"",payments:[]},
-    {id:"b5",cat:"Floristică",planned:1500,spent:1500,vendor:"Flora Design",status:"paid",notes:"",payments:[]},
-    {id:"b6",cat:"Rochie",planned:3000,spent:2800,vendor:"Bridal House",status:"paid",notes:"",payments:[]},
-  ],
-  tasks:[
-    {id:"tk1",title:"Confirmă meniu final",due:"2026-08-01",status:"pending",prio:"high",cat:"Catering"},
-    {id:"tk2",title:"Probă rochie finală",due:"2026-08-15",status:"pending",prio:"high",cat:"Rochie"},
-    {id:"tk3",title:"Trimite invitațiile",due:"2026-07-01",status:"done",prio:"medium",cat:"Invitații"},
-    {id:"tk4",title:"Alege DJ-ul",due:"2026-06-15",status:"pending",prio:"medium",cat:"Muzică"},
-    {id:"tk5",title:"Comandă tort",due:"2026-08-20",status:"pending",prio:"low",cat:"Catering"},
-    {id:"tk6",title:"Aranjament floral",due:"2026-09-01",status:"pending",prio:"high",cat:"Floristică"},
-  ],
-  vendors:[
-    {id:"v1",name:"Palatul Mogoșoaia",cat:"Locație",phone:"+40212345678",email:"events@mogos.ro",status:"contracted",rating:5,notes:"Contract semnat"},
-    {id:"v2",name:"Chef's Table",cat:"Catering",phone:"+40723456789",email:"info@chefs.ro",status:"contracted",rating:4,notes:""},
-    {id:"v3",name:"ArtStudio Pro",cat:"Fotograf",phone:"",email:"",status:"contracted",rating:5,notes:"Foto+video"},
-    {id:"v4",name:"DJ MaxBeat",cat:"Muzică",phone:"+40756789012",email:"",status:"negotiating",rating:3,notes:""},
-  ],
-};
-
-function reducer(s, a) {
-  const p = a.p;
-  const log = (msg) => [{ id: mkid(), msg, ts: new Date().toISOString() }, ...(s.activity || []).slice(0, 49)];
-  switch (a.type) {
-    case "SET": return { ...s, ...p };
-    case "ADD_GUEST": return { ...s, guests: [...s.guests, p], activity: log(`${p.name} adăugat`) };
-    case "UPD_GUEST": {
-      const old = s.guests.find(g => g.id === p.id);
-      let guests = s.guests.map(g => {
-        if (g.id !== p.id) return g;
-        const updated = { ...g, ...p };
-        // Smart table management on RSVP change
-        if (p.rsvp && p.rsvp !== g.rsvp) {
-          if (p.rsvp !== "confirmed" && g.tid) {
-            // Moving away from confirmed → save table & unseat
-            updated.lastTid = g.tid;
-            updated.tid = null;
-          } else if (p.rsvp === "confirmed" && !g.tid && g.lastTid) {
-            // Coming back to confirmed → restore saved table if there's room
-            const tableStillExists = s.tables.some(t => t.id === g.lastTid);
-            if (tableStillExists) {
-              const seatedCount = s.guests.filter(x => x.tid === g.lastTid && x.id !== g.id).length;
-              const tableSeats = s.tables.find(t => t.id === g.lastTid)?.seats || 0;
-              if (seatedCount < tableSeats) {
-                updated.tid = g.lastTid;
-              }
-            }
-            updated.lastTid = null;
-          }
-        }
-        return updated;
-      });
-      return { ...s, guests, activity: log(`${old?.name || "Invitat"} actualizat`) };
-    }
-    case "DEL_GUEST": { const old = s.guests.find(g => g.id === p); return { ...s, guests: s.guests.filter(g => g.id !== p), activity: log(`${old?.name || "Invitat"} șters`) }; }
-    case "ADD_TABLE": return { ...s, tables: [...s.tables, p], activity: log(`${p.name} creată`) };
-    case "UPD_TABLE": return { ...s, tables: s.tables.map(t => t.id === p.id ? { ...t, ...p } : t), activity: log(`Masă actualizată`) };
-    case "DEL_TABLE": return { ...s, tables: s.tables.filter(t => t.id !== p), guests: s.guests.map(g => g.tid === p ? { ...g, tid: null } : g), activity: log(`Masă ștearsă`) };
-    case "REORDER_TABLES": return { ...s, tables: p, activity: log("Ordine mese actualizată") };
-    case "SEAT": { const g = s.guests.find(x => x.id === p.gid); const t = s.tables.find(x => x.id === p.tid); return { ...s, guests: s.guests.map(x => x.id === p.gid ? { ...x, tid: p.tid } : x), activity: log(`${g?.name} → ${t?.name}`) }; }
-    case "UNSEAT": { const g = s.guests.find(x => x.id === p); return { ...s, guests: s.guests.map(x => x.id === p ? { ...x, tid: null } : x), activity: log(`${g?.name} scos de la masă`) }; }
-    case "MOVE_SEAT": { const g = s.guests.find(x => x.id === p.gid); const t = s.tables.find(x => x.id === p.tid); return { ...s, guests: s.guests.map(x => x.id === p.gid ? { ...x, tid: p.tid } : x), activity: log(`${g?.name} mutat → ${t?.name}`) }; }
-    case "ADD_BUDGET": return { ...s, budget: [...s.budget, p], activity: log(`Buget: ${p.cat} adăugat`) };
-    case "UPD_BUDGET": return { ...s, budget: s.budget.map(b => b.id === p.id ? { ...b, ...p } : b) };
-    case "DEL_BUDGET": { const old = s.budget.find(b => b.id === p); return { ...s, budget: s.budget.filter(b => b.id !== p), activity: log(`Buget: ${old?.cat} șters`) }; }
-    case "ADD_TASK": return { ...s, tasks: [...s.tasks, p], activity: log(`Task: ${p.title} adăugat`) };
-    case "UPD_TASK": return { ...s, tasks: s.tasks.map(t => t.id === p.id ? { ...t, ...p } : t) };
-    case "DEL_TASK": { const old = s.tasks.find(t => t.id === p); return { ...s, tasks: s.tasks.filter(t => t.id !== p), activity: log(`Task: ${old?.title} șters`) }; }
-    case "IMPORT_GUESTS": return { ...s, guests: [...s.guests, ...p], activity: log(`${p.length} invitați importați`) };
-    case "SET_GUESTS_IMPORTED": return { ...s, guests: [...s.guests.filter(g => !p.some(ng => ng.name === g.name)), ...p] };
-    default: return s;
-  }
-}
-
 // ═══════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 function Home() {
-  const { s, setShowSettings, setTab } = useContext(Ctx);
+  const { s, setShowSettings, setTab } = useApp();
   const days = Math.max(0, Math.ceil((new Date(s.wedding.date) - new Date()) / 864e5));
   const conf = s.guests.filter(g => g.rsvp === "confirmed").length;
   const pend = s.guests.filter(g => g.rsvp === "pending").length;
@@ -1015,7 +510,7 @@ function Home() {
 // GUESTS — with configurable groups
 // ═══════════════════════════════════════════════════════════════
 function Guests() {
-  const { s, d } = useContext(Ctx);
+  const { s, d } = useApp();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState(null);
@@ -1146,7 +641,7 @@ function Guests() {
 }
 
 function GuestFormInner({ guest, onClose }) {
-  const { s, d } = useContext(Ctx);
+  const { s, d } = useApp();
   const groups = s.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
   const allTags = s.tags || ["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă"];
   const [f, setF] = useState(guest ? { ...guest, tags: guest.tags || [], count: guest.count || 1 } : { name: "", group: groups[0], rsvp: "pending", dietary: "", notes: "", tags: [], count: 1 });
@@ -1228,7 +723,7 @@ function SeatedGuestRow({ g, table, isMoving, setMovingGuest, moveGuest, unseat,
 // 🔥 TABLES — List cards, edit seats, FIXED add bug
 // ═══════════════════════════════════════════════════════════════
 function TablesList() {
-  const { s, d } = useContext(Ctx);
+  const { s, d } = useApp();
   const [expanded, setExpanded] = useState({});
   const [showAdd, setShowAdd] = useState(false);
   const [pickingFor, setPickingFor] = useState(null);
@@ -1422,7 +917,7 @@ function TablesList() {
 }
 
 function AddTableForm({ onClose }) {
-  const { s, d } = useContext(Ctx);
+  const { s, d } = useApp();
   const [name, setName] = useState("Masa " + (s.tables.length + 1));
   const [shape, setShape] = useState("round");
   const [seats, setSeats] = useState(8);
@@ -1452,7 +947,7 @@ function AddTableForm({ onClose }) {
 }
 
 function EditTableForm({ table, onClose }) {
-  const { d } = useContext(Ctx);
+  const { d } = useApp();
   const [name, setName] = useState(table.name);
   const [shape, setShape] = useState(table.shape);
   const [seats, setSeats] = useState(table.seats);
@@ -1481,7 +976,7 @@ function EditTableForm({ table, onClose }) {
 // BUDGET — Enhanced dashboard
 // ═══════════════════════════════════════════════════════════════
 function BudgetMod() {
-  const { s, d } = useContext(Ctx);
+  const { s, d } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const tP = s.budget.reduce((a, b) => a + b.planned, 0);
@@ -1550,7 +1045,7 @@ function BudgetMod() {
 }
 
 function BudgetFormInner({ item, onClose }) {
-  const { s, d } = useContext(Ctx);
+  const { s, d } = useApp();
   const [f, setF] = useState(item ? { ...item, payments: item.payments || [] } : { cat: "", planned: 0, spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] });
   const [showConfirm, setShowConfirm] = useState(false);
   const [pAmt, setPAmt] = useState(0);
@@ -1638,7 +1133,7 @@ function BudgetFormInner({ item, onClose }) {
 // TASKS
 // ═══════════════════════════════════════════════════════════════
 function TasksMod() {
-  const { s, d } = useContext(Ctx);
+  const { s, d } = useApp();
   const [filter, setFilter] = useState("active");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -1742,7 +1237,7 @@ function TasksMod() {
   );
 }
 function TaskFormInner({ task, onClose }) {
-  const { d } = useContext(Ctx); const [f, setF] = useState(task ? { ...task } : { title: "", due: "", status: "pending", prio: "medium", cat: "" }); const [showConfirm, setShowConfirm] = useState(false); const u = k => v => setF(x => ({ ...x, [k]: v }));
+  const { d } = useApp(); const [f, setF] = useState(task ? { ...task } : { title: "", due: "", status: "pending", prio: "medium", cat: "" }); const [showConfirm, setShowConfirm] = useState(false); const u = k => v => setF(x => ({ ...x, [k]: v }));
   return <>
     <Fld label="Titlu" value={f.title} onChange={u("title")} placeholder="Ce trebuie făcut?" />
     <Fld label="Până la data" value={f.due} onChange={u("due")} type="date" />
@@ -1760,7 +1255,7 @@ function TaskFormInner({ task, onClose }) {
 // VENDORS
 // ═══════════════════════════════════════════════════════════════
 function VendorsMod() {
-  const { s, d } = useContext(Ctx); const [showForm, setShowForm] = useState(false); const [editing, setEditing] = useState(null); const [expandedId, setExpandedId] = useState(null);
+  const { s, d } = useApp(); const [showForm, setShowForm] = useState(false); const [editing, setEditing] = useState(null); const [expandedId, setExpandedId] = useState(null);
   const stL = { contracted: "Contractat", negotiating: "Negociere", contacted: "Contactat", potential: "Potențial" };
   const stC = { contracted: "green", negotiating: "blue", contacted: "gold", potential: "gray" };
   const stIcon = { contracted: "✅", negotiating: "🤝", contacted: "📩", potential: "🔍" };
@@ -1847,7 +1342,7 @@ function VendorsMod() {
   </div>);
 }
 function VendorFormInner({ vendor, onClose }) {
-  const { s, d } = useContext(Ctx); const [f, setF] = useState(vendor ? { ...vendor } : { name: "", cat: "Locație", phone: "", email: "", status: "potential", rating: 3, notes: "" }); const u = k => v => setF(x => ({ ...x, [k]: v })); const [showConfirm, setShowConfirm] = useState(false);
+  const { s, d } = useApp(); const [f, setF] = useState(vendor ? { ...vendor } : { name: "", cat: "Locație", phone: "", email: "", status: "potential", rating: 3, notes: "" }); const u = k => v => setF(x => ({ ...x, [k]: v })); const [showConfirm, setShowConfirm] = useState(false);
   const ratingLabels = ["", "Slab", "Acceptabil", "Bun", "Foarte bun", "Excelent"];
   return <>
     <Fld label="Nume furnizor" value={f.name} onChange={u("name")} placeholder="Numele firmei sau persoanei" />
@@ -1875,7 +1370,7 @@ function VendorFormInner({ vendor, onClose }) {
   </>;
 }
 function VendorsInline() {
-  const { s, d } = useContext(Ctx); const [showForm, setShowForm] = useState(false); const [editing, setEditing] = useState(null);
+  const { s, d } = useApp(); const [showForm, setShowForm] = useState(false); const [editing, setEditing] = useState(null);
   const stL = { contracted: "Contractat", negotiating: "Negociere", contacted: "Contactat", potential: "Potențial" };
   const stC = { contracted: "green", negotiating: "blue", contacted: "gold", potential: "gray" };
   const stIcon = { contracted: "✅", negotiating: "🤝", contacted: "📩", potential: "🔍" };
@@ -1910,7 +1405,7 @@ function VendorsInline() {
 // 📥 CSV IMPORT
 // ═══════════════════════════════════════════════════════════════
 function ImportCSV({ open, onClose }) {
-  const { s, d, showToast } = useContext(Ctx);
+  const { s, d, showToast } = useApp();
   const [raw, setRaw] = useState("");
   const [preview, setPreview] = useState([]);
   const groups = s.groups || ["Prieteni"];
@@ -2203,7 +1698,7 @@ function WeddingTips() {
 
 // ── CALCULATOR MENIU ────────────────────────────────────────
 function MenuCalc() {
-  const { s } = useContext(Ctx);
+  const { s } = useApp();
   const conf = s.guests.filter(g => g.rsvp === "confirmed");
   const pend = s.guests.filter(g => g.rsvp === "pending");
 
@@ -2326,7 +1821,7 @@ function MenuCalc() {
 
 // ── CHECKLIST INTELIGENT ─────────────────────────────────────
 function SmartChecklist() {
-  const { s, d } = useContext(Ctx);
+  const { s, d } = useApp();
   const wDate = new Date(s.wedding.date);
   const now = new Date();
   const days = Math.max(0, Math.ceil((wDate - now) / 864e5));
@@ -2488,7 +1983,7 @@ function SmartChecklist() {
 
 // ── ZIUA NUNȚII — Dashboard editabil + printabil ─────────────
 function WeddingDay() {
-  const { s, d } = useContext(Ctx);
+  const { s, d } = useApp();
   const conf = s.guests.filter(g => g.rsvp === "confirmed");
   const dietMap = {};
   conf.forEach(g => { if (g.dietary?.trim()) { const k = g.dietary.trim().toLowerCase(); dietMap[k] = (dietMap[k] || 0) + 1 } });
@@ -2621,7 +2116,7 @@ function WeddingDay() {
 // MAIN APP (Supabase Production)
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
-  const [s, dispatch] = useReducer(reducer, DATA);
+  const [s, dispatch] = useReducer(reducer, INITIAL_DATA);
   const [tab, setTab] = useState("home");
   const [showSettings, setShowSettings] = useState(false);
   const [ready, setReady] = useState(false);
@@ -2775,7 +2270,7 @@ export default function App() {
   const titles = { home: "Dashboard", guests: "Invitați", tables: "Aranjare Mese", budget: "Buget", tasks: "Timeline", tools: "Unelte" };
 
   return (
-    <Ctx.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme, setTab }}>
+    <AppContext.Provider value={{ s, d, user, setShowSettings, showToast, theme, setTheme, setTab }}>
       <div data-theme={theme} style={{ width: "100%", maxWidth: 460, margin: "0 auto", height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", color: "var(--ink)", opacity: ready ? 1 : 0, transition: "opacity .3s" }}>
         <header style={{ height: "var(--hd)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px", borderBottom: "1px solid var(--bd)", background: theme === "dark" ? "rgba(26,24,22,.92)" : "rgba(255,253,248,.92)", backdropFilter: "blur(12px)", flexShrink: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}><img src={LOGO_XS} alt="Wedify" style={{ width: 28, height: 28, objectFit: "contain" }} /><span style={{ fontFamily: "var(--fd)", fontSize: 16, fontWeight: 500 }}>{titles[tab]}</span></div>
@@ -2809,6 +2304,6 @@ export default function App() {
         <Toast message={toast.message} visible={toast.visible} type={toast.type} />
         <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       </div>
-    </Ctx.Provider>
+    </AppContext.Provider>
   );
 }
