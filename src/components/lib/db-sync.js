@@ -240,6 +240,23 @@ const dbSync = {
     if (supabase) await withRetry(() => supabase.from('vendors').delete().eq('id', id));
   },
 
+  async deleteAllWeddingData(weddingId) {
+    const sb = getSupabase();
+    if (!sb || !weddingId) return false;
+    try {
+      await withRetry(() => sb.from('guests').delete().eq('wedding_id', weddingId));
+      await withRetry(() => sb.from('tables').delete().eq('wedding_id', weddingId));
+      await withRetry(() => sb.from('budget_items').delete().eq('wedding_id', weddingId));
+      await withRetry(() => sb.from('tasks').delete().eq('wedding_id', weddingId));
+      await withRetry(() => sb.from('vendors').delete().eq('wedding_id', weddingId));
+      await withRetry(() => sb.from('weddings').delete().eq('id', weddingId));
+      return true;
+    } catch (err) {
+      console.error('deleteAllWeddingData error:', err);
+      return false;
+    }
+  },
+
   async bulkInsertGuests(weddingId, guests) {
     const supabase = getSupabase(); if (!supabase || !weddingId) return [];
     const rows = guests.map(guest => ({
