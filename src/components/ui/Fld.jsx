@@ -10,20 +10,20 @@
  * @param {boolean} [props.required=false]
  */
 function Fld({ label, type = "text", value, onChange, placeholder, options, error, required }) {
-  const base = { width: "100%", padding: "11px 13px", background: "var(--cr)", border: `1.5px solid ${error ? "var(--er)" : "var(--bd)"}`, borderRadius: "var(--rs)", fontSize: 14, color: "var(--ink)" };
+  const base = `w-full rounded-sm border bg-cream px-[13px] py-[11px] text-[14px] text-ink ${error ? "border-err" : "border-border"}`;
   return (
-    <div style={{ marginBottom: 12 }}>
-      {label && <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 4 }}>{label}{required ? " *" : ""}</label>}
+    <div className="mb-3">
+      {label && <label className="mb-1 block text-[10px] font-bold uppercase tracking-[.1em] text-mute">{label}{required ? " *" : ""}</label>}
       {options ? (
-        <select value={value || ""} onChange={e => onChange(e.target.value)} style={{ ...base, appearance: "none" }}>
+        <select value={value || ""} onChange={e => onChange(e.target.value)} className={`${base} appearance-none`}>
           {(options || []).map(o => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}
         </select>
       ) : type === "textarea" ? (
-        <textarea value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} style={{ ...base, resize: "vertical" }} />
+        <textarea value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} className={`${base} resize-y`} />
       ) : (
-        <input type={type} value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={base} />
+        <input type={type} value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={base} />
       )}
-      {error && <div style={{ marginTop: 4, fontSize: 11, color: "var(--er)" }}>{error}</div>}
+      {error && <div className="mt-1 text-[11px] text-err">{error}</div>}
     </div>
   );
 }

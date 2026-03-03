@@ -1,7 +1,7 @@
 import { useReducer, useState, useEffect, useCallback } from "react";
 import { EMPTY_STATE, reducer } from "./state/reducer";
 import { INITIAL_DATA } from "./state/demo-data";
-import { CSS, LOGO_SM } from "./lib/constants";
+import { LOGO_SM } from "./lib/constants";
 import { loadAllData, dbSync } from "./lib/db-sync";
 import { getSupabase } from "./lib/supabase-client";
 import { loadTheme, saveTheme, serializeBudgetNotes } from "./lib/utils";
@@ -108,14 +108,10 @@ export default function WeddingPlanner() {
   useEffect(() => { saveTheme(theme); }, [theme]);
 
   useEffect(() => {
-    const styleTag = document.createElement("style");
-    styleTag.textContent = CSS;
-    document.head.appendChild(styleTag);
     let viewport = document.querySelector('meta[name="viewport"]');
     if (!viewport) { viewport = document.createElement("meta"); viewport.name = "viewport"; document.head.appendChild(viewport); }
     viewport.content = "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover";
     setTimeout(() => setReady(true), 50);
-    return () => document.head.removeChild(styleTag);
   }, []);
 
   useEffect(() => {

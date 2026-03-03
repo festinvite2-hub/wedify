@@ -21,7 +21,7 @@ function Badge({ type = "pending", children, c }) {
     rose: { b: "rgba(212,160,160,.12)", c: "#B07070" },
   };
   const state = map[t] || map.pending;
-  return <span style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 12, fontSize: 9, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", background: state.b, color: state.c }}>{children}</span>;
+  return <span className="inline-flex rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[.06em]" style={{ background: state.b, color: state.c }}>{children}</span>;
 }
 
 export { Badge };
