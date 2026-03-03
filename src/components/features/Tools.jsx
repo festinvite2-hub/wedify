@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useApp } from "../context/AppContext";
+import { useData } from "../context/DataContext";
 import { ic } from "../lib/icons";
 import { Card } from "../ui/Card";
 import { Btn } from "../ui/Btn";
 
 function Tools() {
   const [active, setActive] = useState(null);
-  const { s, d } = useApp();
+  const { state, dispatch } = useData();
   const tools = [
     { k: "tips", l: "Wedding Tips", icon: "💡", desc: "Sfaturi rapide de organizare" },
     { k: "check", l: "Smart Checklist", icon: "✅", desc: "Sugestii automate de task-uri" },
@@ -19,7 +19,7 @@ function Tools() {
       { title: "Verifică seating-ul final", due: "", status: "pending", prio: "high", cat: "Invitați" },
       { title: "Trimite reminder furnizori", due: "", status: "pending", prio: "medium", cat: "Furnizori" },
     ];
-    next.forEach(t => d({ type: "ADD_TASK", p: { id: "x" + Math.random().toString(36).slice(2, 10), ...t } }));
+    next.forEach(t => dispatch({ type: "ADD_TASK", p: { id: "x" + Math.random().toString(36).slice(2, 10), ...t } }));
   };
 
   return (
@@ -40,7 +40,7 @@ function Tools() {
           <button onClick={() => setActive(null)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--gd)", fontWeight: 600, marginBottom: 12, padding: "4px 0" }}>← Înapoi la Unelte</button>
           {active === "tips" && <Card><div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Wedding Tips</div><div style={{ fontSize: 12, color: "var(--mt)", lineHeight: 1.6 }}>Rezervă furnizorii critici cât mai devreme, urmărește RSVP-urile săptămânal și validează timeline-ul cu locația și fotograful.</div></Card>}
           {active === "check" && <Card><div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Smart Checklist</div><div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>Task-uri sugerate în funcție de starea curentă.</div><Btn onClick={addSmartTasks}>Adaugă sugestii în Tasks</Btn></Card>}
-          {active === "day" && <Card><div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Ziua Nunții</div><div style={{ fontSize: 12, color: "var(--mt)", lineHeight: 1.6 }}>Invitați confirmați: {s.guests.filter(g => g.rsvp === "confirmed").length}. Buget cheltuit: {s.budget.reduce((a,b)=>a+(b.spent||0),0)}€.</div></Card>}
+          {active === "day" && <Card><div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Ziua Nunții</div><div style={{ fontSize: 12, color: "var(--mt)", lineHeight: 1.6 }}>Invitați confirmați: {state.guests.filter(g => g.rsvp === "confirmed").length}. Buget cheltuit: {state.budget.reduce((a,b)=>a+(b.spent||0),0)}€.</div></Card>}
         </>
       )}
     </div>

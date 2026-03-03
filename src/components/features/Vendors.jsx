@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useApp } from "../context/AppContext";
+import { useData } from "../context/DataContext";
 import { mkid } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
@@ -32,14 +32,14 @@ function Stars({v,onChange}){return <div style={{display:"flex",gap:2}}>{[1,2,3,
 // ─── Auth Screen (Supabase production) ───────────────────────
 
 function Vendors() {
-  const { s, d } = useApp(); const [showForm, setShowForm] = useState(false); const [editing, setEditing] = useState(null); const [expandedId, setExpandedId] = useState(null);
+  const { state, dispatch } = useData(); const [showForm, setShowForm] = useState(false); const [editing, setEditing] = useState(null); const [expandedId, setExpandedId] = useState(null);
   const stL = { contracted: "Contractat", negotiating: "Negociere", contacted: "Contactat", potential: "Potențial" };
   const stC = { contracted: "green", negotiating: "blue", contacted: "gold", potential: "gray" };
   const stIcon = { contracted: "✅", negotiating: "🤝", contacted: "📩", potential: "🔍" };
   const catIcon = { "Locație": "📍", "Catering": "🍽️", "Fotograf": "📸", "Muzică": "🎵", "Floristică": "💐", "Transport": "🚗", "Altele": "📦" };
   const ratingLabels = ["", "Slab", "Acceptabil", "Bun", "Foarte bun", "Excelent"];
-  const contracted = s.vendors.filter(v => v.status === "contracted").length;
-  const negotiating = s.vendors.filter(v => v.status === "negotiating").length;
+  const contracted = state.vendors.filter(v => v.status === "contracted").length;
+  const negotiating = state.vendors.filter(v => v.status === "negotiating").length;
 
   return (<div className="fu" style={{ padding: "0 14px 20px" }}>
     {/* Summary */}
@@ -56,7 +56,7 @@ function Vendors() {
         </div>
         <div style={{ width: 1, background: "var(--bd)" }} />
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: "var(--fd)", fontSize: 24, color: "var(--gd)", fontWeight: 500 }}>{s.vendors.length}</div>
+          <div style={{ fontFamily: "var(--fd)", fontSize: 24, color: "var(--gd)", fontWeight: 500 }}>{state.vendors.length}</div>
           <div style={{ fontSize: 9, color: "var(--mt)", textTransform: "uppercase", fontWeight: 700 }}>Total</div>
         </div>
       </div>
@@ -67,12 +67,12 @@ function Vendors() {
       <button onClick={() => { setEditing(null); setShowForm(true) }} style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
     </div>
 
-    {s.vendors.length === 0 && <Card style={{ padding: 20, textAlign: "center" }}>
+    {state.vendors.length === 0 && <Card style={{ padding: 20, textAlign: "center" }}>
       <div style={{ fontSize: 24, marginBottom: 6 }}>📇</div>
       <div style={{ fontSize: 13, color: "var(--mt)" }}>Adaugă primul furnizor</div>
     </Card>}
 
-    {s.vendors.map(v => {
+    {state.vendors.map(v => {
       const isExpanded = expandedId === v.id;
       return (
         <Card key={v.id} style={{ marginBottom: 7, padding: 0, overflow: "hidden" }}>
@@ -120,31 +120,31 @@ function Vendors() {
 }
 
 function VendorFormInner({ vendor, onClose }) {
-  const { s, d } = useApp(); const [f, setF] = useState(vendor ? { ...vendor } : { name: "", cat: "Locație", phone: "", email: "", status: "potential", rating: 3, notes: "" }); const u = k => v => setF(x => ({ ...x, [k]: v })); const [showConfirm, setShowConfirm] = useState(false);
+  const { state, dispatch } = useData(); const [formData, setFormData] = useState(vendor ? { ...vendor } : { name: "", cat: "Locație", phone: "", email: "", status: "potential", rating: 3, notes: "" }); const updater = k => v => setFormData(x => ({ ...x, [k]: v })); const [showConfirm, setShowConfirm] = useState(false);
   const ratingLabels = ["", "Slab", "Acceptabil", "Bun", "Foarte bun", "Excelent"];
   return <>
-    <Fld label="Nume furnizor" value={f.name} onChange={u("name")} placeholder="Numele firmei sau persoanei" />
-    <Fld label="Categorie" value={f.cat} onChange={u("cat")} options={["Locație", "Catering", "Fotograf", "Muzică", "Floristică", "Transport", "Altele"]} />
-    <Fld label="Status" value={f.status} onChange={u("status")} options={[{ value: "potential", label: "🔍 Potențial" }, { value: "contacted", label: "📩 Contactat" }, { value: "negotiating", label: "🤝 Negociere" }, { value: "contracted", label: "✅ Contractat" }]} />
-    <Fld label="Telefon" value={f.phone} onChange={u("phone")} placeholder="+40..." />
-    <Fld label="Email" value={f.email} onChange={u("email")} type="email" placeholder="email@furnizor.ro" />
+    <Fld label="Nume furnizor" value={formData.name} onChange={updater("name")} placeholder="Numele firmei sau persoanei" />
+    <Fld label="Categorie" value={formData.cat} onChange={updater("cat")} options={["Locație", "Catering", "Fotograf", "Muzică", "Floristică", "Transport", "Altele"]} />
+    <Fld label="Status" value={formData.status} onChange={updater("status")} options={[{ value: "potential", label: "🔍 Potențial" }, { value: "contacted", label: "📩 Contactat" }, { value: "negotiating", label: "🤝 Negociere" }, { value: "contracted", label: "✅ Contractat" }]} />
+    <Fld label="Telefon" value={formData.phone} onChange={updater("phone")} placeholder="+40..." />
+    <Fld label="Email" value={formData.email} onChange={updater("email")} type="email" placeholder="email@furnizor.ro" />
     <div style={{ marginBottom: 12 }}>
-      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>Evaluare: <span style={{ color: "var(--gd)", textTransform: "none" }}>{ratingLabels[f.rating || 0]}</span></label>
+      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>Evaluare: <span style={{ color: "var(--gd)", textTransform: "none" }}>{ratingLabels[formData.rating || 0]}</span></label>
       <div style={{ display: "flex", gap: 4 }}>
         {[1,2,3,4,5].map(i => (
-          <button key={i} onClick={() => u("rating")(i)} style={{ flex: 1, padding: "8px 0", borderRadius: 8, textAlign: "center", border: `2px solid ${i <= f.rating ? "var(--g)" : "var(--bd)"}`, background: i <= f.rating ? "rgba(184,149,106,.08)" : "var(--cr)", transition: "all .15s" }}>
-            <div style={{ fontSize: 14 }}>{i <= f.rating ? "★" : "☆"}</div>
-            <div style={{ fontSize: 8, color: i <= f.rating ? "var(--gd)" : "var(--mt)", fontWeight: 600 }}>{ratingLabels[i]}</div>
+          <button key={i} onClick={() => updater("rating")(i)} style={{ flex: 1, padding: "8px 0", borderRadius: 8, textAlign: "center", border: `2px solid ${i <= formData.rating ? "var(--g)" : "var(--bd)"}`, background: i <= formData.rating ? "rgba(184,149,106,.08)" : "var(--cr)", transition: "all .15s" }}>
+            <div style={{ fontSize: 14 }}>{i <= formData.rating ? "★" : "☆"}</div>
+            <div style={{ fontSize: 8, color: i <= formData.rating ? "var(--gd)" : "var(--mt)", fontWeight: 600 }}>{ratingLabels[i]}</div>
           </button>
         ))}
       </div>
     </div>
-    <Fld label="Note" value={f.notes} onChange={u("notes")} type="textarea" placeholder="Detalii contract, prețuri, observații..." />
+    <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Detalii contract, prețuri, observații..." />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { if (vendor) d({ type: "SET", p: { vendors: s.vendors.map(v => v.id === vendor.id ? { ...v, ...f } : v) } }); else d({ type: "SET", p: { vendors: [...s.vendors, { ...f, id: mkid() }] } }); onClose() }} disabled={!f.name}>Salvează</Btn>
+      <Btn full onClick={() => { if (vendor) dispatch({ type: "SET", p: { vendors: state.vendors.map(v => v.id === vendor.id ? { ...v, ...f } : v) } }); else dispatch({ type: "SET", p: { vendors: [...state.vendors, { ...f, id: mkid() }] } }); onClose() }} disabled={!formData.name}>Salvează</Btn>
       {vendor && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
-    {vendor && <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { d({ type: "SET", p: { vendors: s.vendors.filter(v => v.id !== vendor.id) } }); onClose() }} title="Șterge furnizorul?" message={`"${vendor?.name}" va fi eliminat.`} />}
+    {vendor && <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "SET", p: { vendors: state.vendors.filter(v => v.id !== vendor.id) } }); onClose() }} title="Șterge furnizorul?" message={`"${vendor?.name}" va fi eliminat.`} />}
   </>;
 }
 

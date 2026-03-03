@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useApp } from "../context/AppContext";
+import { useData } from "../context/DataContext";
 import { mkid, fmtD } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
@@ -28,16 +28,16 @@ function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
 }
 
 function Tasks() {
-  const { s, d } = useApp();
+  const { state, dispatch } = useData();
   const [filter, setFilter] = useState("active");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const list = useMemo(() => { let l = [...s.tasks].sort((a, b) => new Date(a.due) - new Date(b.due)); if (filter === "active") l = l.filter(t => t.status !== "done"); if (filter === "done") l = l.filter(t => t.status === "done"); if (filter === "urgent") l = l.filter(t => t.prio === "high" && t.status !== "done"); return l }, [s.tasks, filter]);
-  const done = s.tasks.filter(t => t.status === "done").length;
-  const pct = Math.round((done / Math.max(s.tasks.length, 1)) * 100);
-  const overdue = s.tasks.filter(t => new Date(t.due) < new Date() && t.status !== "done").length;
+  const list = useMemo(() => { let l = [...state.tasks].sort((a, b) => new Date(a.due) - new Date(b.due)); if (filter === "active") l = l.filter(t => t.status !== "done"); if (filter === "done") l = l.filter(t => t.status === "done"); if (filter === "urgent") l = l.filter(t => t.prio === "high" && t.status !== "done"); return l }, [state.tasks, filter]);
+  const done = state.tasks.filter(t => t.status === "done").length;
+  const pct = Math.round((done / Math.max(state.tasks.length, 1)) * 100);
+  const overdue = state.tasks.filter(t => new Date(t.due) < new Date() && t.status !== "done").length;
 
-  const wDate = new Date(s.wedding.date);
+  const wDate = new Date(state.wedding.date);
   const now = new Date();
   const daysLeft = Math.max(0, Math.ceil((wDate - now) / 864e5));
 
@@ -62,7 +62,7 @@ function Tasks() {
             <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>Progres total</div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
               <span style={{ fontFamily: "var(--fd)", fontSize: 28, fontWeight: 500, color: "var(--g)" }}>{pct}%</span>
-              <span style={{ fontSize: 11, color: "var(--mt)" }}>{done}/{s.tasks.length} gata</span>
+              <span style={{ fontSize: 11, color: "var(--mt)" }}>{done}/{state.tasks.length} gata</span>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
@@ -81,9 +81,9 @@ function Tasks() {
 
       {/* Filters + Add */}
       <div style={{ display: "flex", gap: 5, marginBottom: 10, alignItems: "center" }}>
-        {[{ k: "active", l: "Active", cnt: s.tasks.filter(t => t.status !== "done").length }, { k: "urgent", l: "Urgente", cnt: s.tasks.filter(t => t.prio === "high" && t.status !== "done").length }, { k: "done", l: "Finalizate", cnt: done }].map(f =>
-          <button key={f.k} onClick={() => setFilter(f.k)} style={{ padding: "5px 11px", borderRadius: 14, fontSize: 10, fontWeight: 600, background: filter === f.k ? "var(--g)" : "var(--cr)", color: filter === f.k ? "#fff" : "var(--mt)", border: `1px solid ${filter === f.k ? "var(--g)" : "var(--bd)"}` }}>
-            {f.l} <span style={{ opacity: .7 }}>{f.cnt}</span>
+        {[{ k: "active", l: "Active", cnt: state.tasks.filter(t => t.status !== "done").length }, { k: "urgent", l: "Urgente", cnt: state.tasks.filter(t => t.prio === "high" && t.status !== "done").length }, { k: "done", l: "Finalizate", cnt: done }].map(f =>
+          <button key={formData.k} onClick={() => setFilter(formData.k)} style={{ padding: "5px 11px", borderRadius: 14, fontSize: 10, fontWeight: 600, background: filter === formData.k ? "var(--g)" : "var(--cr)", color: filter === formData.k ? "#fff" : "var(--mt)", border: `1px solid ${filter === formData.k ? "var(--g)" : "var(--bd)"}` }}>
+            {formData.l} <span style={{ opacity: .7 }}>{formData.cnt}</span>
           </button>
         )}
         <button onClick={() => { setEditing(null); setShowForm(true) }} style={{ marginLeft: "auto", width: 32, height: 32, borderRadius: "50%", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
@@ -99,7 +99,7 @@ function Tasks() {
           <Card key={t.id} style={{ marginBottom: 6, padding: 0, overflow: "hidden", opacity: dn ? .5 : 1 }}>
             <div style={{ display: "flex", alignItems: "stretch" }}>
               {/* Checkbox area */}
-              <button onClick={() => d({ type: "UPD_TASK", p: { id: t.id, status: dn ? "pending" : "done" } })} style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: dn ? "rgba(107,158,104,.08)" : over ? "rgba(184,92,92,.04)" : "transparent", borderRight: "1px solid var(--bd)" }}>
+              <button onClick={() => dispatch({ type: "UPD_TASK", p: { id: t.id, status: dn ? "pending" : "done" } })} style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: dn ? "rgba(107,158,104,.08)" : over ? "rgba(184,92,92,.04)" : "transparent", borderRight: "1px solid var(--bd)" }}>
                 <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${dn ? "var(--ok)" : over ? "var(--er)" : "var(--ft)"}`, background: dn ? "var(--ok)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all .2s" }}>
                   {dn && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
                 </div>
@@ -130,17 +130,17 @@ function Tasks() {
 }
 
 function TaskFormInner({ task, onClose }) {
-  const { d } = useApp(); const [f, setF] = useState(task ? { ...task } : { title: "", due: "", status: "pending", prio: "medium", cat: "" }); const [showConfirm, setShowConfirm] = useState(false); const u = k => v => setF(x => ({ ...x, [k]: v }));
+  const { dispatch } = useData(); const [formData, setFormData] = useState(task ? { ...task } : { title: "", due: "", status: "pending", prio: "medium", cat: "" }); const [showConfirm, setShowConfirm] = useState(false); const updater = k => v => setFormData(x => ({ ...x, [k]: v }));
   return <>
-    <Fld label="Titlu" value={f.title} onChange={u("title")} placeholder="Ce trebuie făcut?" />
-    <Fld label="Până la data" value={f.due} onChange={u("due")} type="date" />
-    <Fld label="Categorie" value={f.cat} onChange={u("cat")} placeholder="Catering, Rochie, General..." />
-    <Fld label="Prioritate" value={f.prio} onChange={u("prio")} options={[{ value: "low", label: "Scăzută" }, { value: "medium", label: "Medie" }, { value: "high", label: "Urgentă" }]} />
+    <Fld label="Titlu" value={formData.title} onChange={updater("title")} placeholder="Ce trebuie făcut?" />
+    <Fld label="Până la data" value={formData.due} onChange={updater("due")} type="date" />
+    <Fld label="Categorie" value={formData.cat} onChange={updater("cat")} placeholder="Catering, Rochie, General..." />
+    <Fld label="Prioritate" value={formData.prio} onChange={updater("prio")} options={[{ value: "low", label: "Scăzută" }, { value: "medium", label: "Medie" }, { value: "high", label: "Urgentă" }]} />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { d({ type: task ? "UPD_TASK" : "ADD_TASK", p: { ...f, id: task?.id || mkid() } }); onClose() }} disabled={!f.title}>Salvează</Btn>
+      <Btn full onClick={() => { dispatch({ type: task ? "UPD_TASK" : "ADD_TASK", p: { ...f, id: task?.id || mkid() } }); onClose() }} disabled={!formData.title}>Salvează</Btn>
       {task && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
-    <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { d({ type: "DEL_TASK", p: task.id }); onClose() }} title="Șterge task-ul?" message={`"${task?.title}" va fi eliminat.`} />
+    <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "DEL_TASK", p: task.id }); onClose() }} title="Șterge task-ul?" message={`"${task?.title}" va fi eliminat.`} />
   </>;
 }
 

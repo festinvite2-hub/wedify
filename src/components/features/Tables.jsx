@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useApp } from "../context/AppContext";
+import { useData } from "../context/DataContext";
 import { gCount, generateTablesPDF, openPDF } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
@@ -78,7 +78,7 @@ function SeatedGuestRow({ g, table, isMoving, setMovingGuest, moveGuest, unseat,
 // ═══════════════════════════════════════════════════════════════
 
 function Tables() {
-  const { s, d } = useApp();
+  const { state, dispatch } = useData();
   const [expanded, setExpanded] = useState({});
   const [showAdd, setShowAdd] = useState(false);
   const [pickingFor, setPickingFor] = useState(null);
@@ -91,15 +91,15 @@ function Tables() {
   const [viewMode, setViewMode] = useState("list");
   const [dragTid, setDragTid] = useState(null);
 
-  const unassigned = useMemo(() => s.guests.filter(g => !g.tid && g.rsvp === "confirmed"), [s.guests]);
-  const gAt = useCallback(tid => s.guests.filter(g => g.tid === tid), [s.guests]);
-  const totalSeats = s.tables.reduce((a, t) => a + t.seats, 0); // seats = person capacity
-  const totalSeated = sumGuests(s.guests.filter(g => g.tid));
+  const unassigned = useMemo(() => state.guests.filter(g => !g.tid && g.rsvp === "confirmed"), [state.guests]);
+  const gAt = useCallback(tid => state.guests.filter(g => g.tid === tid), [state.guests]);
+  const totalSeats = state.tables.reduce((a, t) => a + t.seats, 0); // seats = person capacity
+  const totalSeated = sumGuests(state.guests.filter(g => g.tid));
 
   const toggle = tid => setExpanded(e => ({ ...e, [tid]: !e[tid] }));
-  const seat = (gid, tid) => d({ type: "SEAT", p: { gid, tid } });
-  const unseat = gid => d({ type: "UNSEAT", p: gid });
-  const moveGuest = (gid, newTid) => { d({ type: "MOVE_SEAT", p: { gid, tid: newTid } }); setMovingGuest(null); };
+  const seat = (gid, tid) => dispatch({ type: "SEAT", p: { gid, tid } });
+  const unseat = gid => dispatch({ type: "UNSEAT", p: gid });
+  const moveGuest = (gid, newTid) => { dispatch({ type: "MOVE_SEAT", p: { gid, tid: newTid } }); setMovingGuest(null); };
 
   const avail = useMemo(() => {
     let l = unassigned;
@@ -107,12 +107,12 @@ function Tables() {
     return l;
   }, [unassigned, searchG]);
 
-  const tableStats = useMemo(() => s.tables.map(t => {
+  const tableStats = useMemo(() => state.tables.map(t => {
     const seated = gAt(t.id);
     const seatedPersons = seated.reduce((a, g) => a + gCount(g), 0);
     const free = t.seats - seatedPersons;
     return { ...t, seated, seatedPersons, free, isFull: free <= 0 };
-  }), [s.tables, gAt]);
+  }), [state.tables, gAt]);
 
   const displayedTables = useMemo(() => {
     let list = [...tableStats];
@@ -126,13 +126,13 @@ function Tables() {
 
   const moveTableOrder = (fromId, toId) => {
     if (!fromId || !toId || fromId === toId) return;
-    const arr = [...s.tables];
+    const arr = [...state.tables];
     const from = arr.findIndex(t => t.id === fromId);
     const to = arr.findIndex(t => t.id === toId);
     if (from < 0 || to < 0) return;
     const [it] = arr.splice(from, 1);
     arr.splice(to, 0, it);
-    d({ type: "REORDER_TABLES", p: arr });
+    dispatch({ type: "REORDER_TABLES", p: arr });
   };
 
   return (
@@ -151,7 +151,7 @@ function Tables() {
       <Card style={{ marginBottom: 12, padding: 10 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Filtru</span>
-          {[{k:"all",l:"Toate"},{k:"free",l:"Cu locuri libere"},{k:"full",l:"Complete"}].map(f => <button key={f.k} onClick={() => setTableFilter(f.k)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: tableFilter===f.k ? "var(--gd)" : "var(--cr)", color: tableFilter===f.k ? "#fff" : "var(--gr)", border: `1px solid ${tableFilter===f.k ? "var(--gd)" : "var(--bd)"}` }}>{f.l}</button>)}
+          {[{k:"all",l:"Toate"},{k:"free",l:"Cu locuri libere"},{k:"full",l:"Complete"}].map(f => <button key={formData.k} onClick={() => setTableFilter(formData.k)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: tableFilter===formData.k ? "var(--gd)" : "var(--cr)", color: tableFilter===formData.k ? "#fff" : "var(--gr)", border: `1px solid ${tableFilter===formData.k ? "var(--gd)" : "var(--bd)"}` }}>{formData.l}</button>)}
           <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700, marginLeft: 6 }}>Sortare</span>
           <select value={tableSort} onChange={e => setTableSort(e.target.value)} style={{ padding: "5px 8px", borderRadius: 10, background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 10, color: "var(--gr)" }}>
             <option value="default">Implicit</option>
@@ -191,7 +191,7 @@ function Tables() {
       </Card>}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>{s.tables.length} mese</span>
+        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>{state.tables.length} mese</span>
         <Btn v="secondary" onClick={() => setShowAdd(true)} style={{ fontSize: 11, padding: "5px 12px" }}>{ic.plus} Masă nouă</Btn>
       </div>
 
@@ -225,7 +225,7 @@ function Tables() {
                 {seated.map(g => {
                   const isMoving = movingGuest?.gid === g.id;
                   return (
-                    <SeatedGuestRow key={g.id} g={g} table={table} isMoving={isMoving} setMovingGuest={setMovingGuest} moveGuest={moveGuest} unseat={unseat} gAt={gAt} allTables={s.tables} />
+                    <SeatedGuestRow key={g.id} g={g} table={table} isMoving={isMoving} setMovingGuest={setMovingGuest} moveGuest={moveGuest} unseat={unseat} gAt={gAt} allTables={state.tables} />
                   );
                 })}
               </div> : <div style={{ padding: "10px 0", fontSize: 12, color: "var(--mt)", fontStyle: "italic" }}>Niciun invitat</div>}
@@ -256,7 +256,7 @@ function Tables() {
         );
       })}
 
-      <ConfirmDialog open={!!confirmDel} onClose={() => setConfirmDel(null)} onConfirm={() => { d({ type: "DEL_TABLE", p: confirmDel }); setExpanded(e => { const n = { ...e }; delete n[confirmDel]; return n }); }} title="Șterge masa?" message="Toți invitații de la această masă vor deveni nealocați." />
+      <ConfirmDialog open={!!confirmDel} onClose={() => setConfirmDel(null)} onConfirm={() => { dispatch({ type: "DEL_TABLE", p: confirmDel }); setExpanded(e => { const n = { ...e }; delete n[confirmDel]; return n }); }} title="Șterge masa?" message="Toți invitații de la această masă vor deveni nealocați." />
 
       {/* Add table modal */}
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Masă nouă">
@@ -272,14 +272,14 @@ function Tables() {
 }
 
 function AddTableForm({ onClose }) {
-  const { s, d } = useApp();
-  const [name, setName] = useState("Masa " + (s.tables.length + 1));
+  const { state, dispatch } = useData();
+  const [name, setName] = useState("Masa " + (state.tables.length + 1));
   const [shape, setShape] = useState("round");
   const [seats, setSeats] = useState(8);
 
   const handleAdd = () => {
     if (!name.trim()) return;
-    d({ type: "ADD_TABLE", p: { id: mkid(), name: name.trim(), shape, seats: Number(seats) || 8 } });
+    dispatch({ type: "ADD_TABLE", p: { id: mkid(), name: name.trim(), shape, seats: Number(seats) || 8 } });
     onClose();
   };
 
@@ -302,7 +302,7 @@ function AddTableForm({ onClose }) {
 }
 
 function EditTableForm({ table, onClose }) {
-  const { d } = useApp();
+  const { dispatch } = useData();
   const [name, setName] = useState(table.name);
   const [shape, setShape] = useState(table.shape);
   const [seats, setSeats] = useState(table.seats);
@@ -323,7 +323,7 @@ function EditTableForm({ table, onClose }) {
     </div>
     <Fld label="Număr locuri" value={seats} onChange={v => setSeats(v)} type="number" />
     <Fld label="Note" value={notes} onChange={setNotes} type="textarea" placeholder="Lângă ringul de dans, masă rotundă mare..." />
-    <Btn full onClick={() => { d({ type: "UPD_TABLE", p: { id: table.id, name, shape, seats: Number(seats) || 8, notes } }); onClose() }} disabled={!name}>Salvează</Btn>
+    <Btn full onClick={() => { dispatch({ type: "UPD_TABLE", p: { id: table.id, name, shape, seats: Number(seats) || 8, notes } }); onClose() }} disabled={!name}>Salvează</Btn>
   </>;
 }
 

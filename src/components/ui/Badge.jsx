@@ -15,8 +15,8 @@ function Badge({ type = "pending", children, c }) {
     gray: { b: "rgba(160,160,160,.08)", c: "var(--mt)" },
     rose: { b: "rgba(212,160,160,.12)", c: "#B07070" },
   };
-  const s = map[t] || map.pending;
-  return <span style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 12, fontSize: 9, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", background: s.b, color: s.c }}>{children}</span>;
+  const state = map[t] || map.pending;
+  return <span style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 12, fontSize: 9, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", background: state.b, color: state.c }}>{children}</span>;
 }
 
 export { Badge };

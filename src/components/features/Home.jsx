@@ -1,26 +1,26 @@
-import { useApp } from "../context/AppContext";
+import { useData } from "../context/DataContext";
 import { Card } from "../ui/Card";
 import { fmtD, fmtC, sumGuests } from "../lib/utils";
 import { ic } from "../lib/icons";
 
 function Home() {
-  const { s, setShowSettings, setTab } = useApp();
-  const days = Math.max(0, Math.ceil((new Date(s.wedding.date) - new Date()) / 864e5));
-  const conf = s.guests.filter(g => g.rsvp === "confirmed").length;
-  const pend = s.guests.filter(g => g.rsvp === "pending").length;
-  const decl = s.guests.filter(g => g.rsvp === "declined").length;
-  const confPpl = sumGuests(s.guests.filter(g => g.rsvp === "confirmed"));
-  const tP = s.budget.reduce((a, b) => a + b.planned, 0);
-  const tS = s.budget.reduce((a, b) => a + b.spent, 0);
+  const { state, setShowSettings, setTab } = useData();
+  const days = Math.max(0, Math.ceil((new Date(state.wedding.date) - new Date()) / 864e5));
+  const conf = state.guests.filter(g => g.rsvp === "confirmed").length;
+  const pend = state.guests.filter(g => g.rsvp === "pending").length;
+  const decl = state.guests.filter(g => g.rsvp === "declined").length;
+  const confPpl = sumGuests(state.guests.filter(g => g.rsvp === "confirmed"));
+  const tP = state.budget.reduce((a, b) => a + b.planned, 0);
+  const tS = state.budget.reduce((a, b) => a + b.spent, 0);
   const bP = tP > 0 ? Math.round((tS / tP) * 100) : 0;
-  const doneT = s.tasks.filter(t => t.status === "done").length;
-  const seated = s.guests.filter(g => g.tid).length;
-  const seatedConfPpl = sumGuests(s.guests.filter(g => g.tid && g.rsvp === "confirmed"));
-  const urgent = s.tasks.filter(t => t.prio === "high" && t.status !== "done");
-  const overdue = s.tasks.filter(t => new Date(t.due) < new Date() && t.status !== "done").length;
-  const paidC = s.budget.filter(b => b.status === "paid").length;
-  const partC = s.budget.filter(b => b.status === "partial").length;
-  const unpC = s.budget.filter(b => b.status === "unpaid").length;
+  const doneT = state.tasks.filter(t => t.status === "done").length;
+  const seated = state.guests.filter(g => g.tid).length;
+  const seatedConfPpl = sumGuests(state.guests.filter(g => g.tid && g.rsvp === "confirmed"));
+  const urgent = state.tasks.filter(t => t.prio === "high" && t.status !== "done");
+  const overdue = state.tasks.filter(t => new Date(t.due) < new Date() && t.status !== "done").length;
+  const paidC = state.budget.filter(b => b.status === "paid").length;
+  const partC = state.budget.filter(b => b.status === "partial").length;
+  const unpC = state.budget.filter(b => b.status === "unpaid").length;
   const costPerGuest = confPpl > 0 ? Math.round(tP / confPpl) : 0;
   const unseatedConfPpl = Math.max(confPpl - seatedConfPpl, 0);
   const todaysActions = [
@@ -40,9 +40,9 @@ function Home() {
           <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}><span style={{ color: "var(--g)" }}>{ic.heart}</span><span style={{ fontSize: 9, color: "var(--gd)", textTransform: "uppercase", letterSpacing: ".15em", fontWeight: 700 }}>Countdown</span></div>
           <div style={{ fontFamily: "var(--fd)", fontSize: 44, fontWeight: 500, color: "var(--gd)", lineHeight: 1 }}>{days}</div>
           <div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>zile rămase</div>
-          <div style={{ fontSize: 15, color: "var(--ink)", fontWeight: 600 }}>{s.wedding.couple}</div>
-          <div style={{ fontSize: 11, color: "var(--gr)", marginTop: 2 }}>{fmtD(s.wedding.date)} · {s.wedding.venue}</div>
-          <div style={{ fontSize: 10, color: "var(--mt)", marginTop: 4 }}>Țintă invitați: {Math.max(1, Number(s.wedding.guestTarget) || 100)}</div>
+          <div style={{ fontSize: 15, color: "var(--ink)", fontWeight: 600 }}>{state.wedding.couple}</div>
+          <div style={{ fontSize: 11, color: "var(--gr)", marginTop: 2 }}>{fmtD(state.wedding.date)} · {state.wedding.venue}</div>
+          <div style={{ fontSize: 10, color: "var(--mt)", marginTop: 4 }}>Țintă invitați: {Math.max(1, Number(state.wedding.guestTarget) || 100)}</div>
         </div>
       </div>
 
@@ -60,8 +60,8 @@ function Home() {
         {[
           { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)", tab: "guests" },
           { l: "Așezați", v: `${seatedConfPpl}/${confPpl}`, sub: `${Math.max(confPpl - seatedConfPpl, 0)} rămași`, cl: "var(--g)", tab: "tables" },
-          { l: "Tasks", v: `${Math.round((doneT / Math.max(s.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${s.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)", tab: "tasks" },
-          { l: "Total invitați", v: s.guests.length, sub: `${sumGuests(s.guests)} persoane · ${s.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)", tab: "guests" },
+          { l: "Tasks", v: `${Math.round((doneT / Math.max(state.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${state.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)", tab: "tasks" },
+          { l: "Total invitați", v: state.guests.length, sub: `${sumGuests(state.guests)} persoane · ${state.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)", tab: "guests" },
           { l: "Cost/persoană", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${confPpl} pers. confirmate`, cl: "var(--gd)", tab: "budget" },
         ].map((x, i) => (
           <Card key={i} onClick={() => setTab(x.tab)} style={{ padding: "12px 10px", cursor: "pointer" }}>
@@ -126,12 +126,12 @@ function Home() {
         </div>
         {/* Top categories */}
         <div style={{ marginTop: 10 }}>
-          {s.budget.slice(0, 3).map(b => {
-            const p = Math.round((b.spent / Math.max(b.planned, 1)) * 100);
+          {state.budget.slice(0, 3).map(b => {
+            const payload = Math.round((b.spent / Math.max(b.planned, 1)) * 100);
             return (<div key={b.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
               <span style={{ fontSize: 11, flex: 1, fontWeight: 500 }}>{b.cat}</span>
-              <div style={{ width: 60, height: 4, background: "var(--cr2)", borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", borderRadius: 2, width: `${Math.min(p, 100)}%`, background: p > 100 ? "var(--er)" : "var(--g)" }} /></div>
-              <span style={{ fontSize: 10, color: "var(--mt)", minWidth: 32, textAlign: "right" }}>{p}%</span>
+              <div style={{ width: 60, height: 4, background: "var(--cr2)", borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", borderRadius: 2, width: `${Math.min(payload, 100)}%`, background: payload > 100 ? "var(--er)" : "var(--g)" }} /></div>
+              <span style={{ fontSize: 10, color: "var(--mt)", minWidth: 32, textAlign: "right" }}>{payload}%</span>
             </div>);
           })}
         </div>
@@ -147,15 +147,15 @@ function Home() {
       <Card style={{ marginTop: 12 }}>
         <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 10 }}>Export</div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn v="secondary" onClick={() => openPDF(generateGuestsPDF(s.guests, s.wedding))} style={{ flex: 1, fontSize: 11, padding: "9px 12px" }}>📄 Lista invitați</Btn>
-          <Btn v="secondary" onClick={() => openPDF(generateTablesPDF(s.tables, s.guests, s.wedding))} style={{ flex: 1, fontSize: 11, padding: "9px 12px" }}>📄 Plan mese</Btn>
+          <Btn v="secondary" onClick={() => openPDF(generateGuestsPDF(state.guests, state.wedding))} style={{ flex: 1, fontSize: 11, padding: "9px 12px" }}>📄 Lista invitați</Btn>
+          <Btn v="secondary" onClick={() => openPDF(generateTablesPDF(state.tables, state.guests, state.wedding))} style={{ flex: 1, fontSize: 11, padding: "9px 12px" }}>📄 Plan mese</Btn>
         </div>
       </Card>
 
       {/* Activity log */}
-      {(s.activity || []).length > 0 && <Card style={{ marginTop: 12 }}>
+      {(state.activity || []).length > 0 && <Card style={{ marginTop: 12 }}>
         <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 8 }}>Activitate recentă</div>
-        {(s.activity || []).slice(0, 8).map((a, i) => {
+        {(state.activity || []).slice(0, 8).map((a, i) => {
           const ago = Math.round((Date.now() - new Date(a.ts).getTime()) / 60000);
           const agoText = ago < 1 ? "acum" : ago < 60 ? `${ago}m` : ago < 1440 ? `${Math.round(ago / 60)}h` : `${Math.round(ago / 1440)}z`;
           return (<div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderTop: i ? "1px solid var(--bd)" : "none" }}>

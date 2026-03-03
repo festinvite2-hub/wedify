@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useApp } from "../context/AppContext";
+import { useData } from "../context/DataContext";
 import { mkid, fmtC, parseBudgetNotes, serializeBudgetNotes } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
@@ -27,18 +27,18 @@ function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
 }
 
 function Budget() {
-  const { s, d } = useApp();
+  const { state, dispatch } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const tP = s.budget.reduce((a, b) => a + b.planned, 0);
-  const tS = s.budget.reduce((a, b) => a + b.spent, 0);
+  const tP = state.budget.reduce((a, b) => a + b.planned, 0);
+  const tS = state.budget.reduce((a, b) => a + b.spent, 0);
   const pct = tP > 0 ? Math.round((tS / tP) * 100) : 0;
   const cl = ["#B8956A", "#8BA888", "#D4A0A0", "#5A82B4", "#C9A032", "#B85C5C", "#9A9A9A", "#A088B8"];
-  const vendorByName = useMemo(() => new Map((s.vendors || []).map(v => [(v.name || "").trim().toLowerCase(), v])), [s.vendors]);
+  const vendorByName = useMemo(() => new Map((state.vendors || []).map(v => [(v.name || "").trim().toLowerCase(), v])), [state.vendors]);
 
   // SVG donut
   let angle = 0;
-  const arcs = s.budget.map((b, i) => {
+  const arcs = state.budget.map((b, i) => {
     const sl = tS > 0 ? (b.spent / tS) * 360 : 0;
     const s2 = angle; angle += sl;
     const sr = ((s2 - 90) * Math.PI) / 180, er = ((s2 + sl - 90) * Math.PI) / 180;
@@ -65,7 +65,7 @@ function Budget() {
 
       {/* Legend */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-        {s.budget.map((b, i) => (
+        {state.budget.map((b, i) => (
           <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: cl[i % cl.length] }} /><span style={{ color: "var(--gr)" }}>{b.cat}</span>
           </div>
@@ -76,15 +76,15 @@ function Budget() {
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>Categorii</span>
         <Btn v="secondary" onClick={() => { setEditing(null); setShowForm(true) }} style={{ fontSize: 10, padding: "4px 10px" }}>{ic.plus} Adaugă</Btn>
       </div>
-      {s.budget.map((b, i) => { const p = Math.round((b.spent / Math.max(b.planned, 1)) * 100); const linkedVendor = vendorByName.get((b.vendor || "").trim().toLowerCase()); return (
+      {state.budget.map((b, i) => { const payload = Math.round((b.spent / Math.max(b.planned, 1)) * 100); const linkedVendor = vendorByName.get((b.vendor || "").trim().toLowerCase()); return (
         <Card key={b.id} onClick={() => { setEditing(b); setShowForm(true) }} style={{ marginBottom: 7, cursor: "pointer", padding: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: cl[i % cl.length] }} /><span style={{ flex: 1, fontWeight: 600, fontSize: 13 }}>{b.cat}</span><Badge c={b.status === "paid" ? "green" : b.status === "partial" ? "blue" : "gray"}>{b.status === "paid" ? "Plătit" : b.status === "partial" ? "Parțial" : "Neplătit"}</Badge></div>
           {b.vendor && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3 }}>📍 {b.vendor}</div>}
           {linkedVendor && <div style={{ display: "flex", gap: 5, marginBottom: 4, flexWrap: "wrap" }}><Badge c={linkedVendor.status === "contracted" ? "green" : linkedVendor.status === "negotiating" ? "blue" : "gray"}>{linkedVendor.status === "contracted" ? "Contractat" : linkedVendor.status === "negotiating" ? "Negociere" : linkedVendor.status === "potential" ? "Potențial" : linkedVendor.status}</Badge><Badge c="gold">⭐ {linkedVendor.rating || 0}/5</Badge></div>}
           {b.notes && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3, fontStyle: "italic" }}>📝 {b.notes}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}><span>{fmtC(b.spent)}</span><span style={{ color: "var(--mt)" }}>{fmtC(b.planned)}</span></div>
-          <div style={{ height: 4, background: "var(--cr2)", borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", borderRadius: 2, width: `${Math.min(p, 100)}%`, background: p > 100 ? "var(--er)" : "var(--g)", transition: "width .5s" }} /></div>
-          {p > 100 && <div style={{ fontSize: 9, color: "var(--er)", fontWeight: 600, marginTop: 2 }}>⚠ +{fmtC(b.spent - b.planned)}</div>}
+          <div style={{ height: 4, background: "var(--cr2)", borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", borderRadius: 2, width: `${Math.min(payload, 100)}%`, background: payload > 100 ? "var(--er)" : "var(--g)", transition: "width .5s" }} /></div>
+          {payload > 100 && <div style={{ fontSize: 9, color: "var(--er)", fontWeight: 600, marginTop: 2 }}>⚠ +{fmtC(b.spent - b.planned)}</div>}
         </Card>
       ) })}
 
@@ -96,47 +96,47 @@ function Budget() {
 }
 
 function BudgetFormInner({ item, onClose }) {
-  const { s, d } = useApp();
-  const [f, setF] = useState(item ? { ...item, payments: item.payments || [] } : { cat: "", planned: 0, spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] });
+  const { state, dispatch } = useData();
+  const [formData, setFormData] = useState(item ? { ...item, payments: item.payments || [] } : { cat: "", planned: 0, spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] });
   const [showConfirm, setShowConfirm] = useState(false);
   const [pAmt, setPAmt] = useState(0);
   const [pDate, setPDate] = useState(new Date().toISOString().slice(0, 10));
   const [pNote, setPNote] = useState("");
-  const u = k => v => setF(x => ({ ...x, [k]: v }));
+  const updater = k => v => setFormData(x => ({ ...x, [k]: v }));
 
   const norm = (v) => (v || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
   const sameCat = (vCat, bCat) => norm(vCat).includes(norm(bCat)) || norm(bCat).includes(norm(vCat));
 
-  const vendors = s.vendors || [];
-  const linkedByCat = vendors.filter(v => f.cat && sameCat(v.cat, f.cat));
+  const vendors = state.vendors || [];
+  const linkedByCat = vendors.filter(v => formData.cat && sameCat(v.cat, formData.cat));
   const contractedByCat = linkedByCat.find(v => v.status === "contracted");
   const vendorOptions = [{ value: "", label: "— Selectează furnizor —" }, ...vendors.map(v => ({ value: v.name, label: `${v.name}${v.cat ? ` · ${v.cat}` : ""}${v.status ? ` (${v.status})` : ""}` }))];
 
   useEffect(() => {
-    if (!f.cat || f.vendor) return;
-    if (contractedByCat?.name) setF(x => ({ ...x, vendor: contractedByCat.name }));
-  }, [f.cat, f.vendor, contractedByCat?.name]);
+    if (!formData.cat || formData.vendor) return;
+    if (contractedByCat?.name) setFormData(x => ({ ...x, vendor: contractedByCat.name }));
+  }, [formData.cat, formData.vendor, contractedByCat?.name]);
 
-  const payments = f.payments || [];
+  const payments = formData.payments || [];
   const spentFromPayments = payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
-  const effectiveSpent = payments.length > 0 ? spentFromPayments : (Number(f.spent) || 0);
+  const effectiveSpent = payments.length > 0 ? spentFromPayments : (Number(formData.spent) || 0);
 
   const addPayment = () => {
     const amt = Number(pAmt) || 0;
     if (amt <= 0) return;
-    setF(x => ({ ...x, payments: [...(x.payments || []), { id: mkid(), amount: amt, date: pDate || new Date().toISOString().slice(0, 10), note: pNote || "" }], spent: spentFromPayments + amt }));
+    setFormData(x => ({ ...x, payments: [...(x.payments || []), { id: mkid(), amount: amt, date: pDate || new Date().toISOString().slice(0, 10), note: pNote || "" }], spent: spentFromPayments + amt }));
     setPAmt(0); setPNote("");
   };
-  const delPayment = (id) => setF(x => {
+  const delPayment = (id) => setFormData(x => {
     const nx = (x.payments || []).filter(p => p.id !== id);
     const spent = nx.reduce((a, p) => a + (Number(p.amount) || 0), 0);
     return { ...x, payments: nx, spent };
   });
 
   return <>
-    <Fld label="Categorie" value={f.cat} onChange={u("cat")} />
-    <Fld label="Planificat (€)" value={f.planned} onChange={v => u("planned")(parseFloat(v) || 0)} type="number" />
-    <Fld label="Cheltuit total (€)" value={effectiveSpent} onChange={v => u("spent")(parseFloat(v) || 0)} type="number" />
+    <Fld label="Categorie" value={formData.cat} onChange={updater("cat")} />
+    <Fld label="Planificat (€)" value={formData.planned} onChange={v => updater("planned")(parseFloat(v) || 0)} type="number" />
+    <Fld label="Cheltuit total (€)" value={effectiveSpent} onChange={v => updater("spent")(parseFloat(v) || 0)} type="number" />
 
     <div style={{ marginBottom: 12, padding: 10, borderRadius: "var(--rs)", border: "1px solid var(--bd)", background: "var(--cr)" }}>
       <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 6 }}>Istoric plăți</div>
@@ -160,23 +160,23 @@ function BudgetFormInner({ item, onClose }) {
     </div>
 
     {contractedByCat && <div style={{ marginBottom: 8, fontSize: 10, color: "var(--ok)", fontWeight: 600 }}>🔗 Sugestie automată pentru categorie: {contractedByCat.name} (contractat)</div>}
-    <Fld label="Furnizor (din listă)" value={f.vendor} onChange={u("vendor")} options={vendorOptions} />
-    <Fld label="Sau introdu manual" value={f.vendor} onChange={u("vendor")} placeholder="Nume furnizor..." />
+    <Fld label="Furnizor (din listă)" value={formData.vendor} onChange={updater("vendor")} options={vendorOptions} />
+    <Fld label="Sau introdu manual" value={formData.vendor} onChange={updater("vendor")} placeholder="Nume furnizor..." />
 
     {linkedByCat.length > 0 && <div style={{ marginBottom: 10 }}>
       <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 5 }}>Furnizori pe această categorie</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-        {linkedByCat.map(v => <button key={v.id} onClick={() => u("vendor")(v.name)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, background: f.vendor === v.name ? "var(--gd)" : "var(--cr)", color: f.vendor === v.name ? "#fff" : "var(--gr)", border: `1px solid ${f.vendor === v.name ? "var(--gd)" : "var(--bd)"}` }}>{v.name} {v.status === "contracted" ? "✓" : ""}</button>)}
+        {linkedByCat.map(v => <button key={v.id} onClick={() => updater("vendor")(v.name)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, background: formData.vendor === v.name ? "var(--gd)" : "var(--cr)", color: formData.vendor === v.name ? "#fff" : "var(--gr)", border: `1px solid ${formData.vendor === v.name ? "var(--gd)" : "var(--bd)"}` }}>{v.name} {v.status === "contracted" ? "✓" : ""}</button>)}
       </div>
     </div>}
 
-    <Fld label="Status" value={f.status} onChange={u("status")} options={[{ value: "unpaid", label: "Neplătit" }, { value: "partial", label: "Parțial" }, { value: "paid", label: "Plătit" }]} />
-    <Fld label="Note" value={f.notes} onChange={u("notes")} type="textarea" placeholder="Plata în 2 rate, factură trimisă..." />
+    <Fld label="Status" value={formData.status} onChange={updater("status")} options={[{ value: "unpaid", label: "Neplătit" }, { value: "partial", label: "Parțial" }, { value: "paid", label: "Plătit" }]} />
+    <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Plata în 2 rate, factură trimisă..." />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { const cleanNotes = f.notes || ""; d({ type: item ? "UPD_BUDGET" : "ADD_BUDGET", p: { ...f, spent: effectiveSpent, notes: cleanNotes, id: item?.id || mkid() } }); onClose() }} disabled={!f.cat}>Salvează</Btn>
+      <Btn full onClick={() => { const cleanNotes = formData.notes || ""; dispatch({ type: item ? "UPD_BUDGET" : "ADD_BUDGET", p: { ...f, spent: effectiveSpent, notes: cleanNotes, id: item?.id || mkid() } }); onClose() }} disabled={!formData.cat}>Salvează</Btn>
       {item && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
-    <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { d({ type: "DEL_BUDGET", p: item.id }); onClose() }} title="Șterge categoria?" message={`"${item?.cat}" va fi eliminată din buget.`} />
+    <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "DEL_BUDGET", p: item.id }); onClose() }} title="Șterge categoria?" message={`"${item?.cat}" va fi eliminată din buget.`} />
   </>;
 }
 
