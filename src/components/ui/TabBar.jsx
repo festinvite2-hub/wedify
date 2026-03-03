@@ -2,6 +2,10 @@ import { ic } from "../lib/icons";
 import { useTheme } from "../context/ThemeContext";
 import { useData } from "../context/DataContext";
 
+/**
+ * Consumă context intern (activeTab, setTab).
+ * Nu primește props externe obligatorii.
+ */
 function TabBar({ overdueCount = 0 }) {
   const { activeTab, setTab } = useData();
   const { theme } = useTheme();

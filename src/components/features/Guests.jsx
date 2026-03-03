@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useData } from "../context/DataContext";
-import { mkid, gCount, gTypeIcon, gTypeLabel, generateGuestsPDF, openPDF } from "../lib/utils";
+import { mkid, gCount, sumGuests, gTypeIcon, gTypeLabel, generateGuestsPDF, openPDF } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
 import { Btn } from "../ui/Btn";
@@ -183,7 +183,7 @@ function GuestFormInner({ guest, onClose }) {
       </div>
     </div>
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Vine cu copil, necesită cazare..." />
-    <Btn full onClick={() => { dispatch({ type: guest ? "UPD_GUEST" : "ADD_GUEST", p: { ...f, id: guest?.id || mkid(), tid: formData.tid || null } }); onClose() }} disabled={!formData.name}>{guest ? "Salvează" : "Adaugă"}</Btn>
+    <Btn full onClick={() => { dispatch({ type: guest ? "UPD_GUEST" : "ADD_GUEST", p: { ...formData, id: guest?.id || mkid(), tid: formData.tid || null } }); onClose() }} disabled={!formData.name}>{guest ? "Salvează" : "Adaugă"}</Btn>
   </>;
 }
 

@@ -1,3 +1,13 @@
+/**
+ * @param {Object} props
+ * @param {"gold"|"outline"|"ghost"|"danger"} [props.variant="gold"]
+ * @param {"sm"|"md"|"lg"} [props.size="md"]
+ * @param {boolean} [props.fullWidth=false]
+ * @param {boolean} [props.disabled=false]
+ * @param {Function} props.onClick
+ * @param {React.ReactNode} props.children
+ * @param {Object} [props.style]
+ */
 function Btn({ variant = "gold", size = "md", fullWidth = false, disabled, onClick, children, style, v, full, ...props }) {
   const resolvedVariant = v ? ({ primary: "gold", secondary: "outline", ghost: "ghost", danger: "danger" }[v] || variant) : variant;
   const resolvedFull = full !== undefined ? full : fullWidth;

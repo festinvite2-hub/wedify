@@ -173,7 +173,7 @@ function BudgetFormInner({ item, onClose }) {
     <Fld label="Status" value={formData.status} onChange={updater("status")} options={[{ value: "unpaid", label: "Neplătit" }, { value: "partial", label: "Parțial" }, { value: "paid", label: "Plătit" }]} />
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Plata în 2 rate, factură trimisă..." />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { const cleanNotes = formData.notes || ""; dispatch({ type: item ? "UPD_BUDGET" : "ADD_BUDGET", p: { ...f, spent: effectiveSpent, notes: cleanNotes, id: item?.id || mkid() } }); onClose() }} disabled={!formData.cat}>Salvează</Btn>
+      <Btn full onClick={() => { const cleanNotes = formData.notes || ""; dispatch({ type: item ? "UPD_BUDGET" : "ADD_BUDGET", p: { ...formData, spent: effectiveSpent, notes: cleanNotes, id: item?.id || mkid() } }); onClose() }} disabled={!formData.cat}>Salvează</Btn>
       {item && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
     <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "DEL_BUDGET", p: item.id }); onClose() }} title="Șterge categoria?" message={`"${item?.cat}" va fi eliminată din buget.`} />

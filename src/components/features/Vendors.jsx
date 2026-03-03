@@ -141,7 +141,7 @@ function VendorFormInner({ vendor, onClose }) {
     </div>
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Detalii contract, prețuri, observații..." />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { if (vendor) dispatch({ type: "SET", p: { vendors: state.vendors.map(v => v.id === vendor.id ? { ...v, ...f } : v) } }); else dispatch({ type: "SET", p: { vendors: [...state.vendors, { ...f, id: mkid() }] } }); onClose() }} disabled={!formData.name}>Salvează</Btn>
+      <Btn full onClick={() => { if (vendor) dispatch({ type: "SET", p: { vendors: state.vendors.map(v => v.id === vendor.id ? { ...v, ...formData } : v) } }); else dispatch({ type: "SET", p: { vendors: [...state.vendors, { ...formData, id: mkid() }] } }); onClose() }} disabled={!formData.name}>Salvează</Btn>
       {vendor && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
     {vendor && <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "SET", p: { vendors: state.vendors.filter(v => v.id !== vendor.id) } }); onClose() }} title="Șterge furnizorul?" message={`"${vendor?.name}" va fi eliminat.`} />}

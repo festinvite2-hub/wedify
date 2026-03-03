@@ -1,3 +1,14 @@
+/**
+ * @param {Object} props
+ * @param {string} [props.label]
+ * @param {"text"|"email"|"password"|"date"|"number"|"select"|"textarea"} [props.type="text"]
+ * @param {string|number} props.value
+ * @param {Function} props.onChange
+ * @param {string} [props.placeholder]
+ * @param {Array<{value:string,label:string}>} [props.options]
+ * @param {string} [props.error]
+ * @param {boolean} [props.required=false]
+ */
 function Fld({ label, type = "text", value, onChange, placeholder, options, error, required }) {
   const base = { width: "100%", padding: "11px 13px", background: "var(--cr)", border: `1.5px solid ${error ? "var(--er)" : "var(--bd)"}`, borderRadius: "var(--rs)", fontSize: 14, color: "var(--ink)" };
   return (

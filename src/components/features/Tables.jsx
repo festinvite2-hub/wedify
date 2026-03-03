@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext";
-import { gCount, generateTablesPDF, openPDF } from "../lib/utils";
+import { gCount, sumGuests, generateTablesPDF, openPDF } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
 import { Btn } from "../ui/Btn";
@@ -151,7 +151,7 @@ function Tables() {
       <Card style={{ marginBottom: 12, padding: 10 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Filtru</span>
-          {[{k:"all",l:"Toate"},{k:"free",l:"Cu locuri libere"},{k:"full",l:"Complete"}].map(f => <button key={formData.k} onClick={() => setTableFilter(formData.k)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: tableFilter===formData.k ? "var(--gd)" : "var(--cr)", color: tableFilter===formData.k ? "#fff" : "var(--gr)", border: `1px solid ${tableFilter===formData.k ? "var(--gd)" : "var(--bd)"}` }}>{formData.l}</button>)}
+          {[{k:"all",l:"Toate"},{k:"free",l:"Cu locuri libere"},{k:"full",l:"Complete"}].map(f => <button key={f.k} onClick={() => setTableFilter(f.k)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: tableFilter===f.k ? "var(--gd)" : "var(--cr)", color: tableFilter===f.k ? "#fff" : "var(--gr)", border: `1px solid ${tableFilter===f.k ? "var(--gd)" : "var(--bd)"}` }}>{f.l}</button>)}
           <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700, marginLeft: 6 }}>Sortare</span>
           <select value={tableSort} onChange={e => setTableSort(e.target.value)} style={{ padding: "5px 8px", borderRadius: 10, background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 10, color: "var(--gr)" }}>
             <option value="default">Implicit</option>

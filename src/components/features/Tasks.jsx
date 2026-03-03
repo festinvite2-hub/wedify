@@ -82,8 +82,8 @@ function Tasks() {
       {/* Filters + Add */}
       <div style={{ display: "flex", gap: 5, marginBottom: 10, alignItems: "center" }}>
         {[{ k: "active", l: "Active", cnt: state.tasks.filter(t => t.status !== "done").length }, { k: "urgent", l: "Urgente", cnt: state.tasks.filter(t => t.prio === "high" && t.status !== "done").length }, { k: "done", l: "Finalizate", cnt: done }].map(f =>
-          <button key={formData.k} onClick={() => setFilter(formData.k)} style={{ padding: "5px 11px", borderRadius: 14, fontSize: 10, fontWeight: 600, background: filter === formData.k ? "var(--g)" : "var(--cr)", color: filter === formData.k ? "#fff" : "var(--mt)", border: `1px solid ${filter === formData.k ? "var(--g)" : "var(--bd)"}` }}>
-            {formData.l} <span style={{ opacity: .7 }}>{formData.cnt}</span>
+          <button key={f.k} onClick={() => setFilter(f.k)} style={{ padding: "5px 11px", borderRadius: 14, fontSize: 10, fontWeight: 600, background: filter === f.k ? "var(--g)" : "var(--cr)", color: filter === f.k ? "#fff" : "var(--mt)", border: `1px solid ${filter === f.k ? "var(--g)" : "var(--bd)"}` }}>
+            {f.l} <span style={{ opacity: .7 }}>{f.cnt}</span>
           </button>
         )}
         <button onClick={() => { setEditing(null); setShowForm(true) }} style={{ marginLeft: "auto", width: 32, height: 32, borderRadius: "50%", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
@@ -137,7 +137,7 @@ function TaskFormInner({ task, onClose }) {
     <Fld label="Categorie" value={formData.cat} onChange={updater("cat")} placeholder="Catering, Rochie, General..." />
     <Fld label="Prioritate" value={formData.prio} onChange={updater("prio")} options={[{ value: "low", label: "Scăzută" }, { value: "medium", label: "Medie" }, { value: "high", label: "Urgentă" }]} />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { dispatch({ type: task ? "UPD_TASK" : "ADD_TASK", p: { ...f, id: task?.id || mkid() } }); onClose() }} disabled={!formData.title}>Salvează</Btn>
+      <Btn full onClick={() => { dispatch({ type: task ? "UPD_TASK" : "ADD_TASK", p: { ...formData, id: task?.id || mkid() } }); onClose() }} disabled={!formData.title}>Salvează</Btn>
       {task && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
     <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "DEL_TASK", p: task.id }); onClose() }} title="Șterge task-ul?" message={`"${task?.title}" va fi eliminat.`} />

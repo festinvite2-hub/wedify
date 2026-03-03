@@ -1,3 +1,8 @@
+/**
+ * @param {Object} props
+ * @param {"confirmed"|"pending"|"declined"|"paid"|"partial"|"unpaid"|"contracted"|"negotiating"|"potential"|"rejected"} [props.type]
+ * @param {React.ReactNode} props.children
+ */
 function Badge({ type = "pending", children, c }) {
   const t = c || type;
   const map = {

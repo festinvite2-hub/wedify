@@ -1,6 +1,7 @@
 import { useData } from "../context/DataContext";
 import { Card } from "../ui/Card";
-import { fmtD, fmtC, sumGuests } from "../lib/utils";
+import { Btn } from "../ui/Btn";
+import { fmtD, fmtC, sumGuests, openPDF, generateGuestsPDF, generateTablesPDF } from "../lib/utils";
 import { ic } from "../lib/icons";
 
 function Home() {

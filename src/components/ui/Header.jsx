@@ -3,6 +3,10 @@ import { ic } from "../lib/icons";
 import { useTheme } from "../context/ThemeContext";
 import { useData } from "../context/DataContext";
 
+/**
+ * Consumă context intern (wedding name, theme, toggleTheme, setTab).
+ * Nu primește props externe obligatorii.
+ */
 function Header({ title, onOpenSettings }) {
   const { theme, toggleTheme } = useTheme();
   const { state, setTab } = useData();

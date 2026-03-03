@@ -1,6 +1,15 @@
 import { createPortal } from "react-dom";
 import { ic } from "../lib/icons";
 
+/**
+ * @param {Object} props
+ * @param {boolean} props.open
+ * @param {Function} props.onClose
+ * @param {string} [props.title]
+ * @param {React.ReactNode} props.children
+ * @param {React.ReactNode} [props.footer]
+ * @param {string} [props.maxWidth="480px"]
+ */
 function Modal({ open, onClose, title, children, footer, maxWidth = "480px" }) {
   if (!open || typeof document === "undefined") return null;
   return createPortal(

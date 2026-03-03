@@ -1,3 +1,10 @@
+/**
+ * @param {Object} props
+ * @param {React.ReactNode} props.icon
+ * @param {string} props.title
+ * @param {string} [props.subtitle]
+ * @param {React.ReactNode} [props.action]
+ */
 function EmptyState({ icon = "📭", title, subtitle, action }) {
   return (
     <div style={{ textAlign: "center", padding: "36px 20px" }}>

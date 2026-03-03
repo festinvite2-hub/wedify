@@ -1,5 +1,8 @@
 import { Component } from 'react';
 
+/**
+ * @param {{children: React.ReactNode}} props
+ */
 export class ErrorBoundary extends Component {
   state = { hasError: false, error: null };
 

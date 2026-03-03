@@ -1,5 +1,12 @@
 import { useEffect } from "react";
 
+/**
+ * @param {Object} props
+ * @param {string} props.message
+ * @param {"success"|"error"|"info"} [props.type="info"]
+ * @param {boolean} props.visible
+ * @param {Function} [props.onHide]
+ */
 function Toast({ message, type = "info", visible, onHide }) {
   useEffect(() => {
     if (!visible || !onHide) return;

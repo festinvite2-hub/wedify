@@ -4,7 +4,7 @@ import { INITIAL_DATA } from "./state/demo-data";
 import { CSS, LOGO_SM } from "./lib/constants";
 import { loadAllData, dbSync } from "./lib/db-sync";
 import { getSupabase } from "./lib/supabase-client";
-import { loadTheme, saveTheme, parseBudgetNotes, serializeBudgetNotes } from "./lib/utils";
+import { loadTheme, saveTheme, serializeBudgetNotes } from "./lib/utils";
 
 import { Header } from "./ui/Header";
 import { TabBar } from "./ui/TabBar";

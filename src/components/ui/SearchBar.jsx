@@ -1,5 +1,11 @@
 import { ic } from "../lib/icons";
 
+/**
+ * @param {Object} props
+ * @param {string} props.value
+ * @param {Function} props.onChange
+ * @param {string} [props.placeholder="Caută..."]
+ */
 function SearchBar({ value, onChange, placeholder = "Caută...", style }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--cd)", border: "1px solid var(--bd)", borderRadius: "var(--rs)", padding: "0 10px", ...style }}>

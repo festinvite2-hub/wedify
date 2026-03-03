@@ -1,3 +1,10 @@
+/**
+ * @param {Object} props
+ * @param {React.ReactNode} props.children
+ * @param {string} [props.padding="16px"]
+ * @param {Object} [props.style]
+ * @param {Function} [props.onClick]
+ */
 function Card({ children, style, padding = "16px", onClick, ...props }) {
   return (
     <div
