@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useData } from "../context/DataContext";
-import { gCount, sumGuests, generateTablesPDF, openPDF } from "../lib/utils";
+import { mkid, gCount, sumGuests, generateTablesPDF, openPDF } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
 import { Btn } from "../ui/Btn";
