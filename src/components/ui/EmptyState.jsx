@@ -7,10 +7,10 @@
  */
 function EmptyState({ icon = "📭", title, subtitle, action }) {
   return (
-    <div style={{ textAlign: "center", padding: "36px 20px" }}>
-      <div style={{ fontSize: 45, marginBottom: 7 }}>{icon}</div>
-      <div style={{ fontFamily: "var(--fd)", fontSize: 19, marginBottom: 3 }}>{title}</div>
-      <div style={{ fontSize: 13, color: "var(--mt)", marginBottom: action ? 10 : 0 }}>{subtitle}</div>
+    <div className="px-5 py-9 text-center">
+      <div className="mb-2 text-[45px]">{icon}</div>
+      <div className="mb-1 font-display text-[19px]">{title}</div>
+      <div className={`text-sm text-mute ${action ? "mb-2.5" : "mb-0"}`}>{subtitle}</div>
       {action || null}
     </div>
   );

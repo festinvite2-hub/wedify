@@ -12,36 +12,23 @@ function Btn({ variant = "gold", size = "md", fullWidth = false, disabled, onCli
   const resolvedVariant = v ? ({ primary: "gold", secondary: "outline", ghost: "ghost", danger: "danger" }[v] || variant) : variant;
   const resolvedFull = full !== undefined ? full : fullWidth;
   const variants = {
-    gold: { background: "var(--g)", color: "#fff", border: "1px solid var(--g)" },
-    outline: { background: "transparent", color: "var(--ink)", border: "1px solid var(--bd)" },
-    ghost: { background: "transparent", color: "var(--gd)", border: "1px solid transparent" },
-    danger: { background: "var(--er)", color: "#fff", border: "1px solid var(--er)" },
+    gold: "bg-gold text-white border border-gold",
+    outline: "bg-transparent text-ink border border-border",
+    ghost: "bg-transparent text-gold-dark border border-transparent",
+    danger: "bg-err text-white border border-err",
   };
   const sizes = {
-    sm: { padding: "7px 12px", fontSize: 12 },
-    md: { padding: "11px 18px", fontSize: 13 },
-    lg: { padding: "13px 20px", fontSize: 14 },
+    sm: "px-3 py-[7px] text-xs",
+    md: "px-[18px] py-[11px] text-sm",
+    lg: "px-5 py-[13px] text-[14px]",
   };
 
   return (
     <button
       disabled={disabled}
       onClick={onClick}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 7,
-        borderRadius: "var(--rs)",
-        letterSpacing: ".02em",
-        transition: "all .2s",
-        fontWeight: 600,
-        opacity: disabled ? 0.4 : 1,
-        width: resolvedFull ? "100%" : "auto",
-        ...sizes[size],
-        ...variants[resolvedVariant],
-        ...style,
-      }}
+      className={`inline-flex items-center justify-center gap-[7px] rounded-sm font-semibold tracking-[.02em] transition-all ${sizes[size]} ${variants[resolvedVariant]} ${resolvedFull ? "w-full" : "w-auto"}`}
+      style={{ opacity: disabled ? 0.4 : 1, ...style }}
       {...props}
     >
       {children}

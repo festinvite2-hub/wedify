@@ -10,15 +10,8 @@ function Card({ children, style, padding = "16px", onClick, ...props }) {
     <div
       onClick={onClick}
       {...props}
-      style={{
-        background: "var(--cd)",
-        color: "var(--ink)",
-        borderRadius: "var(--r)",
-        border: "1px solid var(--bd)",
-        boxShadow: "var(--sh)",
-        padding,
-        ...style,
-      }}
+      className="rounded-card border border-border bg-card text-ink shadow-card"
+      style={{ padding, ...style }}
     >
       {children}
     </div>
