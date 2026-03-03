@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useData } from "../context/DataContext";
 import { gCount, sumGuests, generateTablesPDF, openPDF } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";

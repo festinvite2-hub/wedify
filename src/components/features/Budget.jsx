@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useData } from "../context/DataContext";
 import { mkid, fmtC, parseBudgetNotes, serializeBudgetNotes } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
