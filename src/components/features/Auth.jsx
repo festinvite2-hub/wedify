@@ -69,23 +69,46 @@ function Auth({onLogin}){
 
   const doResetWithCode=async()=>{
     setErr("");
-    if(!otp||otp.length<6)return setErr("Introdu codul din email (6 cifre)");
+    if(!otp||otp.trim().length<6)return setErr("Introdu codul din email");
     if(newPass.length<6)return setErr("Parola nouă: minim 6 caractere");
     if(newPass!==newPass2)return setErr("Parolele nu coincid");
     setLoading(true);
     const sb=getSupabase();
     if(!sb){setLoading(false);return setErr("Eroare configurare server.");}
 
-    const { error: verifyError } = await sb.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: otp.trim(),
-      type: "recovery",
-    });
+    const rawOtp = otp.trim();
+    let verifyError = null;
+
+    // OTP ({{ .Token }}) flow for recovery emails
+    if (!rawOtp.includes("token_hash=")) {
+      const { error } = await sb.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: rawOtp,
+        type: "recovery",
+      });
+      verifyError = error;
+    } else {
+      // Link/token_hash ({{ .ConfirmationURL }}) fallback for projects still using link templates
+      try {
+        const parsed = new URL(rawOtp);
+        const tokenHash = parsed.searchParams.get("token_hash");
+        const type = parsed.searchParams.get("type") || "recovery";
+        if (!tokenHash) {
+          setLoading(false);
+          return setErr("Link invalid. Verifică emailul și copiază linkul complet.");
+        }
+        const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type });
+        verifyError = error;
+      } catch {
+        setLoading(false);
+        return setErr("Format cod/link invalid.");
+      }
+    }
 
     if(verifyError){
       setLoading(false);
       if(verifyError.message.includes("expired"))return setErr("Codul a expirat. Solicită un nou cod.");
-      if(verifyError.message.includes("invalid"))return setErr("Cod invalid. Verifică și încearcă din nou.");
+      if(verifyError.message.includes("invalid"))return setErr("Cod sau link invalid. Verifică emailul și încearcă din nou.");
       return setErr(verifyError.message);
     }
 
@@ -167,12 +190,10 @@ function Auth({onLogin}){
             </div>
             <input
               value={otp}
-              onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
-              placeholder="Cod din email (6 cifre)"
+              onChange={e => setOtp(e.target.value.trim())}
+              placeholder="Codul OTP sau linkul complet din email"
               type="text"
-              inputMode="numeric"
-              maxLength={6}
-              style={{ ...inp, textAlign: "center", fontSize: 24, letterSpacing: 8, fontFamily: "monospace" }}
+              style={{ ...inp, textAlign: "left", fontSize: 14, letterSpacing: 0, fontFamily: "inherit" }}
               autoComplete="one-time-code"
             />
             <input
@@ -194,7 +215,7 @@ function Auth({onLogin}){
             />
             {err && <div style={{ padding: "8px 12px", borderRadius: 10, marginBottom: 10, background: "rgba(184,92,92,.12)", color: "#E88", fontSize: 12, animation: "shake .3s" }}>{err}</div>}
             <button onClick={doResetWithCode} disabled={loading} style={mBtn}>{loading && spin}Schimbă parola</button>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,.25)", textAlign: "center", marginTop: 12 }}>Nu ai primit codul? Verifică spam sau solicită un nou cod.</p>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,.25)", textAlign: "center", marginTop: 12 }}>Dacă emailul conține un link în loc de cod, copiază linkul complet aici.</p>
           </>}
 
           {mode === "reset_done" && <>
