@@ -2,6 +2,23 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl
+
+  // Intercepteaza recovery code pe pagina principala (PKCE)
+  if (pathname === '/' && searchParams.has('code')) {
+    const code = searchParams.get('code')
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/callback'
+    if (code) {
+      url.searchParams.set('code', code)
+    }
+    if (searchParams.has('type')) {
+      const type = searchParams.get('type')
+      if (type) url.searchParams.set('type', type)
+    }
+    return NextResponse.redirect(url)
+  }
+
   let response = NextResponse.next({ request: { headers: request.headers } })
 
   const supabase = createServerClient(
