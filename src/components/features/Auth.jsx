@@ -42,7 +42,7 @@ function Auth({onLogin}){
     if(!sb){setLoading(false);return setErr("Eroare configurare server.");}
     const{error}=await sb.auth.signUp({
       email:e,password:pass,
-      options:{data:{name:n}}
+      options:{data:{name:n},emailRedirectTo:`${window.location.origin}/auth/confirm`}
     });
     setLoading(false);
     if(error){
@@ -59,7 +59,7 @@ function Auth({onLogin}){
     const sb=getSupabase();
     if(!sb){setLoading(false);return setErr("Eroare configurare server.");}
     const{error}=await sb.auth.resetPasswordForEmail(e,{
-      redirectTo:window.location.origin
+      redirectTo:`${window.location.origin}/auth/confirm`
     });
     setLoading(false);
     if(error)return setErr(error.message);
