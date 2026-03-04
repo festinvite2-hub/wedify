@@ -59,7 +59,7 @@ function Auth({onLogin}){
     const sb=getSupabase();
     if(!sb){setLoading(false);return setErr("Eroare configurare server.");}
     const{error}=await sb.auth.resetPasswordForEmail(e,{
-      redirectTo:`${window.location.origin}/auth/confirm`
+      redirectTo:`${window.location.origin}/auth/reset-password`
     });
     setLoading(false);
     if(error)return setErr(error.message);

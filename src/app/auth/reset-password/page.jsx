@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
@@ -8,45 +8,7 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (password.length < 6) {
-      setError('Parola trebuie sa aiba minim 6 caractere.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Parolele nu se potrivesc.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { createBrowserClient } = await import('@supabase/ssr');
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      );
-
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
-      });
-
-      if (updateError) {
-        setError(updateError.message);
-      } else {
-        setDone(true);
-      }
-    } catch {
-      setError('A aparut o eroare. Incearca din nou.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [ready, setReady] = useState(false);
 
   const containerStyle = {
     minHeight: '100vh',
@@ -93,6 +55,99 @@ export default function ResetPasswordPage() {
     cursor: loading ? 'not-allowed' : 'pointer',
     marginTop: '8px',
   };
+
+  useEffect(() => {
+    let mounted = true;
+    let timeoutId;
+    let subscription;
+
+    const initSession = async () => {
+      try {
+        const { createBrowserClient } = await import('@supabase/ssr');
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          if (mounted) setReady(true);
+          return;
+        }
+
+        const authState = supabase.auth.onAuthStateChange((event, authSession) => {
+          if ((event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && authSession)) && mounted) {
+            setReady(true);
+          }
+        });
+        subscription = authState.data.subscription;
+
+        timeoutId = setTimeout(() => {
+          if (mounted) setReady(true);
+        }, 2000);
+      } catch (err) {
+        console.error('Init session error:', err);
+        if (mounted) setReady(true);
+      }
+    };
+
+    initSession();
+
+    return () => {
+      mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (subscription) subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (password.length < 6) {
+      setError('Parola trebuie sa aiba minim 6 caractere.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Parolele nu se potrivesc.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { createBrowserClient } = await import('@supabase/ssr');
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      );
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password,
+      });
+
+      if (updateError) {
+        setError(updateError.message);
+      } else {
+        setDone(true);
+      }
+    } catch {
+      setError('A aparut o eroare. Incearca din nou.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!ready) {
+    return (
+      <div style={containerStyle}>
+        <div style={cardStyle}>
+          <p style={{ color: '#b8a88a', fontSize: '14px' }}>Se incarca...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (done) {
     return (
