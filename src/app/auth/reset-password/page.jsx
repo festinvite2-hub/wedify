@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export default function ResetPasswordPage() {
+  const searchParams = useSearchParams();
+  const code = searchParams.get('code');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,6 +72,15 @@ export default function ResetPasswordPage() {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
         );
 
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) {
+            if (mounted) setError('Link invalid sau expirat. Cere un nou email de resetare.');
+            if (mounted) setReady(true);
+            return;
+          }
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           if (mounted) setReady(true);
@@ -98,7 +110,7 @@ export default function ResetPasswordPage() {
       if (timeoutId) clearTimeout(timeoutId);
       if (subscription) subscription.unsubscribe();
     };
-  }, []);
+  }, [code]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
