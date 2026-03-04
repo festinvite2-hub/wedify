@@ -3,12 +3,15 @@ import { getSupabase } from "../lib/supabase-client";
 import { Btn } from "../ui/Btn";
 
 function Auth({onLogin}){
-  const[mode,setMode]=useState("login"); // login | register | forgot | confirm | forgot_sent
+  const[mode,setMode]=useState("login"); // login | register | forgot | confirm | reset_code | reset_done
   const[email,setEmail]=useState("");
   const[name,setName]=useState("");
   const[pass,setPass]=useState("");
   const[pass2,setPass2]=useState("");
   const[err,setErr]=useState("");
+  const[otp,setOtp]=useState("");
+  const[newPass,setNewPass]=useState("");
+  const[newPass2,setNewPass2]=useState("");
   const[loading,setLoading]=useState(false);
   const[ready,setReady]=useState(false);
   useEffect(()=>{setTimeout(()=>setReady(true),100)},[]);
@@ -42,7 +45,7 @@ function Auth({onLogin}){
     if(!sb){setLoading(false);return setErr("Eroare configurare server.");}
     const{error}=await sb.auth.signUp({
       email:e,password:pass,
-      options:{data:{name:n}}
+      options:{data:{name:n},emailRedirectTo:`${window.location.origin}/auth/callback?type=signup`}
     });
     setLoading(false);
     if(error){
@@ -58,12 +61,43 @@ function Auth({onLogin}){
     setLoading(true);
     const sb=getSupabase();
     if(!sb){setLoading(false);return setErr("Eroare configurare server.");}
-    const{error}=await sb.auth.resetPasswordForEmail(e,{
-      redirectTo:window.location.origin
-    });
+    const{error}=await sb.auth.resetPasswordForEmail(e);
     setLoading(false);
     if(error)return setErr(error.message);
-    setMode("forgot_sent");
+    setMode("reset_code");
+  };
+
+  const doResetWithCode=async()=>{
+    setErr("");
+    if(!otp||otp.length<6)return setErr("Introdu codul din email (6 cifre)");
+    if(newPass.length<6)return setErr("Parola nouă: minim 6 caractere");
+    if(newPass!==newPass2)return setErr("Parolele nu coincid");
+    setLoading(true);
+    const sb=getSupabase();
+    if(!sb){setLoading(false);return setErr("Eroare configurare server.");}
+
+    const { error: verifyError } = await sb.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: otp.trim(),
+      type: "recovery",
+    });
+
+    if(verifyError){
+      setLoading(false);
+      if(verifyError.message.includes("expired"))return setErr("Codul a expirat. Solicită un nou cod.");
+      if(verifyError.message.includes("invalid"))return setErr("Cod invalid. Verifică și încearcă din nou.");
+      return setErr(verifyError.message);
+    }
+
+    const { error: updateError } = await sb.auth.updateUser({
+      password: newPass,
+    });
+
+    setLoading(false);
+    if(updateError)return setErr(updateError.message);
+
+    await sb.auth.signOut();
+    setMode("reset_done");
   };
 
   const inp={width:"100%",padding:"14px 16px",borderRadius:14,background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.15)",color:"#fff",fontSize:15,marginBottom:10,backdropFilter:"blur(4px)"};
@@ -120,15 +154,55 @@ function Auth({onLogin}){
             <p style={{fontSize:12,color:"rgba(255,255,255,.35)",textAlign:"center",marginBottom:14}}>Introdu emailul contului tău</p>
             <input value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doForgot()} placeholder="Email" type="email" style={inp}/>
             {err&&<div style={{padding:"8px 12px",borderRadius:10,marginBottom:10,background:"rgba(184,92,92,.12)",color:"#E88",fontSize:12}}>{err}</div>}
-            <button onClick={doForgot} disabled={loading} style={mBtn}>{loading&&spin}Trimite link de resetare</button>
+            <button onClick={doForgot} disabled={loading} style={mBtn}>{loading&&spin}Trimite cod de resetare</button>
           </>}
 
-          {mode==="forgot_sent"&&<>
-            <div style={{textAlign:"center",padding:"12px 0"}}>
-              <div style={{fontSize:36,marginBottom:10}}>🔑</div>
-              <h2 style={{fontFamily:"var(--fd)",fontSize:20,color:"#fff",marginBottom:8}}>Email trimis!</h2>
-              <p style={{fontSize:13,color:"rgba(255,255,255,.4)",marginBottom:18}}>Verifică inbox-ul pentru linkul de resetare.</p>
-              <button onClick={()=>{setMode("login");setErr("");setPass("")}} style={mBtn}>Mergi la conectare</button>
+          {mode === "reset_code" && <>
+            <button onClick={() => { setMode("forgot"); setErr(""); setOtp(""); setNewPass(""); setNewPass2(""); }} style={{ color: "var(--gl)", fontSize: 12, marginBottom: 12, opacity: .7 }}>← Înapoi</button>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>🔑</div>
+              <h2 style={{ fontFamily: "var(--fd)", fontSize: 20, color: "#fff", marginBottom: 8 }}>Verificare cod</h2>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,.4)", marginBottom: 6 }}>Am trimis un cod de verificare la:</p>
+              <p style={{ fontSize: 14, color: "var(--gl)", fontWeight: 600, marginBottom: 18 }}>{email}</p>
+            </div>
+            <input
+              value={otp}
+              onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+              placeholder="Cod din email (6 cifre)"
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              style={{ ...inp, textAlign: "center", fontSize: 24, letterSpacing: 8, fontFamily: "monospace" }}
+              autoComplete="one-time-code"
+            />
+            <input
+              value={newPass}
+              onChange={e => setNewPass(e.target.value)}
+              placeholder="Parola nouă (min 6 caractere)"
+              type="password"
+              style={inp}
+              autoComplete="new-password"
+            />
+            <input
+              value={newPass2}
+              onChange={e => setNewPass2(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && doResetWithCode()}
+              placeholder="Confirmă parola nouă"
+              type="password"
+              style={inp}
+              autoComplete="new-password"
+            />
+            {err && <div style={{ padding: "8px 12px", borderRadius: 10, marginBottom: 10, background: "rgba(184,92,92,.12)", color: "#E88", fontSize: 12, animation: "shake .3s" }}>{err}</div>}
+            <button onClick={doResetWithCode} disabled={loading} style={mBtn}>{loading && spin}Schimbă parola</button>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,.25)", textAlign: "center", marginTop: 12 }}>Nu ai primit codul? Verifică spam sau solicită un nou cod.</p>
+          </>}
+
+          {mode === "reset_done" && <>
+            <div style={{ textAlign: "center", padding: "12px 0" }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>✅</div>
+              <h2 style={{ fontFamily: "var(--fd)", fontSize: 20, color: "#fff", marginBottom: 8 }}>Parolă schimbată!</h2>
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,.4)", marginBottom: 18 }}>Te poți conecta acum cu noua parolă.</p>
+              <button onClick={() => { setMode("login"); setErr(""); setPass(""); setOtp(""); setNewPass(""); setNewPass2(""); }} style={mBtn}>Mergi la conectare</button>
             </div>
           </>}
 
