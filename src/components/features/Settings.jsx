@@ -3,14 +3,13 @@ import { useData } from "../context/DataContext";
 import { useTheme } from "../context/ThemeContext";
 import { saveTheme } from "../lib/utils";
 import { getSupabase } from "../lib/supabase-client";
-import { dbSync } from "../lib/db-sync";
 import { Btn } from "../ui/Btn";
 import { Modal } from "../ui/Modal";
 import { Fld } from "../ui/Fld";
 import { ic } from "../lib/icons";
 
 // TODO: Înlocuiește cu link-ul tău real Revolut.me
-const DONATE_URL = "https://revolut.me/mihaiiq4bq";
+const DONATE_URL = "https://revolut.me/wedify";
 
 function Settings({ open, onClose }) {
   const { state, dispatch, weddingId, showToast } = useData();
@@ -43,15 +42,41 @@ function Settings({ open, onClose }) {
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== "STERGE") return;
     setDeleting(true);
-    const success = await dbSync.deleteAllWeddingData(weddingId);
-    if (success) {
+
+    try {
       const supabase = getSupabase();
-      if (supabase) await supabase.auth.signOut();
+      if (!supabase) throw new Error("No Supabase client");
+
+      // Obtine sesiunea curenta pentru token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No session");
+
+      // Apeleaza Edge Function
+      const response = await window.fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-user`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        throw new Error(result.error || "Delete failed");
+      }
+
+      // Stergere reusita - sign out local si redirect
+      await supabase.auth.signOut();
       window.location.reload();
-      return;
+    } catch (err) {
+      console.error("Delete account error:", err);
+      showToast?.("Eroare la stergerea contului. Incearca din nou.", "error");
+      setDeleting(false);
     }
-    showToast?.("Eroare la ștergerea contului. Încearcă din nou.", "error");
-    setDeleting(false);
   };
 
   return (
