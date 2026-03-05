@@ -38,6 +38,7 @@ function Guests() {
   const [qn, setQn] = useState("");
   const [qg, setQg] = useState("");
   const [qType, setQType] = useState("single");
+  const [personsCount, setPersonsCount] = useState(1);
   const [confirmDel, setConfirmDel] = useState(null);
   const [showStats, setShowStats] = useState(false);
   const [showManageGroups, setShowManageGroups] = useState(false);
@@ -86,7 +87,13 @@ function Guests() {
   }, [state.guests, groupNameById]);
   const gCl = ["#B8956A", "#8BA888", "#D4A0A0", "#5A82B4", "#C9A032", "#9A9A9A", "#A088B8", "#B85C5C"];
 
-  const quickCount = qType === "family" ? 2 : qType === "extendedFamily" ? 4 : 1;
+  const quickCount = personsCount;
+  const setQuickType = (type) => {
+    setQType(type);
+    if (type === "single") setPersonsCount(1);
+    else if (type === "family") setPersonsCount(2);
+    else setPersonsCount(current => Math.min(20, Math.max(3, current < 3 ? 4 : current)));
+  };
   const selectedQuickGroup = guestGroups.find(group => group.id === qg) || guestGroups[0];
   const quickAdd = () => {
     const n = qn.trim();
@@ -151,9 +158,17 @@ function Guests() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
             {[{ k: "single", l: "Single" }, { k: "family", l: "Familie" }, { k: "extendedFamily", l: "Familie extinsă" }].map(t => (
-              <button key={t.k} onClick={() => setQType(t.k)} style={{ minHeight: 42, padding: "8px 6px", borderRadius: 12, fontSize: 11, fontWeight: 700, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
+              <button key={t.k} onClick={() => setQuickType(t.k)} style={{ minHeight: 42, padding: "8px 6px", borderRadius: 12, fontSize: 11, fontWeight: 700, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
             ))}
           </div>
+
+          {qType === "extendedFamily" && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 2 }}>
+              <button onClick={() => setPersonsCount(current => Math.max(3, current - 1))} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 20, fontWeight: 700, color: "var(--gr)", lineHeight: 1 }}>−</button>
+              <div style={{ minWidth: 50, textAlign: "center", fontSize: 18, fontWeight: 700, color: "var(--gd)" }}>{personsCount}</div>
+              <button onClick={() => setPersonsCount(current => Math.min(20, current + 1))} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 20, fontWeight: 700, color: "var(--gr)", lineHeight: 1 }}>+</button>
+            </div>
+          )}
 
           <div style={{ fontSize: 11, color: "var(--mt)", textAlign: "center", marginTop: 2 }}>
             Se vor adăuga <b style={{ color: "var(--gd)" }}>{quickCount}</b> persoane
