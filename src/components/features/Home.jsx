@@ -1,7 +1,6 @@
 import { useData } from "../context/DataContext";
 import { Card } from "../ui/Card";
-import { Btn } from "../ui/Btn";
-import { fmtD, fmtC, sumGuests, openPDF, generateGuestsPDF, generateTablesPDF } from "../lib/utils";
+import { fmtD, fmtC, sumGuests } from "../lib/utils";
 import { ic } from "../lib/icons";
 
 function Home() {
@@ -62,7 +61,7 @@ function Home() {
           { l: "Confirmați", v: conf, sub: `${pend} așteptare · ${decl} refuz`, cl: "var(--ok)", tab: "guests" },
           { l: "Așezați", v: `${seatedConfPpl}/${confPpl}`, sub: `${Math.max(confPpl - seatedConfPpl, 0)} rămași`, cl: "var(--g)", tab: "tables" },
           { l: "Tasks", v: `${Math.round((doneT / Math.max(state.tasks.length, 1)) * 100)}%`, sub: `${doneT}/${state.tasks.length} gata`, cl: overdue > 0 ? "var(--er)" : "var(--ok)", tab: "tasks" },
-          { l: "Total invitați", v: state.guests.length, sub: `${sumGuests(state.guests)} persoane · ${state.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)", tab: "guests" },
+          { l: "Total invitați", v: sumGuests(state.guests), sub: `${state.guests.length} înregistrări · ${state.guests.filter(g => g.dietary).length} cu restricții`, cl: "var(--g)", tab: "guests" },
           { l: "Cost/persoană", v: fmtC(costPerGuest), sub: `buget ${fmtC(tP)} / ${confPpl} pers. confirmate`, cl: "var(--gd)", tab: "budget" },
         ].map((x, i) => (
           <Card key={i} onClick={() => setTab(x.tab)} style={{ padding: "12px 10px", cursor: "pointer" }}>
@@ -143,15 +142,6 @@ function Home() {
         <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 8 }}>Urgente</div>
         {urgent.slice(0, 4).map((t, i) => <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderTop: i ? "1px solid var(--bd)" : "none" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--er)", flexShrink: 0 }} /><div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{t.title}</div><div style={{ fontSize: 10, color: "var(--mt)" }}>{fmtD(t.due)}</div></div></div>)}
       </Card>}
-
-      {/* Export buttons */}
-      <Card style={{ marginTop: 12 }}>
-        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 10 }}>Export</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn v="secondary" onClick={() => openPDF(generateGuestsPDF(state.guests, state.wedding))} style={{ flex: 1, fontSize: 11, padding: "9px 12px" }}>📄 Lista invitați</Btn>
-          <Btn v="secondary" onClick={() => openPDF(generateTablesPDF(state.tables, state.guests, state.wedding))} style={{ flex: 1, fontSize: 11, padding: "9px 12px" }}>📄 Plan mese</Btn>
-        </div>
-      </Card>
 
       {/* Activity log */}
       {(state.activity || []).length > 0 && <Card style={{ marginTop: 12 }}>

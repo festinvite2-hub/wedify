@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "../context/DataContext";
-import { mkid, gCount, sumGuests, gTypeIcon, gTypeLabel, generateGuestsPDF, openPDF } from "../lib/utils";
+import { mkid, gCount, sumGuests, gTypeIcon, gTypeLabel } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
 import { Btn } from "../ui/Btn";
@@ -28,16 +28,15 @@ function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
 }
 
 function Guests() {
-  const { state, dispatch } = useData();
+  const { state, dispatch, setTab } = useData();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [tagFilter, setTagFilter] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [qn, setQn] = useState("");
   const [qg, setQg] = useState(state.groups?.[0] || "Prieteni");
   const [qType, setQType] = useState("single");
-  const [qFamilySize, setQFamilySize] = useState(3);
+  const [qFamilySize, setQFamilySize] = useState(4);
   const [confirmDel, setConfirmDel] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -47,18 +46,16 @@ function Guests() {
   const list = useMemo(() => {
     let l = state.guests;
     if (filter !== "all") l = l.filter(g => g.rsvp === filter);
-    if (tagFilter) l = l.filter(g => (g.tags || []).includes(tagFilter));
     if (search) l = l.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
     return l;
-  }, [state.guests, filter, search, tagFilter]);
+  }, [state.guests, filter, search]);
 
   const grouped = useMemo(() => { const g = {}; list.forEach(x => { const k = x.group || "Altele"; if (!g[k]) g[k] = []; g[k].push(x) }); return g }, [list]);
   const st = { total: state.guests.length, conf: state.guests.filter(g => g.rsvp === "confirmed").length, pend: state.guests.filter(g => g.rsvp === "pending").length, totalPpl: sumGuests(state.guests), confPpl: sumGuests(state.guests.filter(g => g.rsvp === "confirmed")), pendPpl: sumGuests(state.guests.filter(g => g.rsvp === "pending")) };
   const groupStats = useMemo(() => { const gs = {}; state.guests.forEach(g => { const k = g.group || "Altele"; gs[k] = (gs[k] || 0) + 1 }); return Object.entries(gs).map(([name, count]) => ({ name, count, pct: Math.round((count / Math.max(state.guests.length, 1)) * 100) })); }, [state.guests]);
-  const allTags = useMemo(() => { const t = new Set(state.tags || []); state.guests.forEach(g => (g.tags || []).forEach(tag => t.add(tag))); return [...t]; }, [state.guests, state.tags]);
   const gCl = ["#B8956A","#8BA888","#D4A0A0","#5A82B4","#C9A032","#9A9A9A","#A088B8","#B85C5C"];
 
-  const quickCount = qType === "couple" ? 2 : qType === "family" ? Math.max(3, Number(qFamilySize) || 3) : 1;
+  const quickCount = qType === "family" ? 2 : qType === "extendedFamily" ? Math.max(3, Number(qFamilySize) || 4) : 1;
   const quickAdd = () => { const n = qn.trim(); if (!n) return; dispatch({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: quickCount } }); setQn(""); ref.current?.focus() };
   const cycleRsvp = g => { const nx = { pending: "confirmed", confirmed: "declined", declined: "pending" }; dispatch({ type: "UPD_GUEST", p: { id: g.id, rsvp: nx[g.rsvp] } }) };
 
@@ -85,12 +82,13 @@ function Guests() {
         ))}
       </Card>}
 
-      {allTags.length > 0 && <div style={{ display: "flex", gap: 4, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
-        <span style={{ fontSize: 10, color: "var(--mt)", alignSelf: "center", marginRight: 2, flexShrink: 0 }}>{ic.tag}</span>
-        {allTags.map(t => { const cnt = state.guests.filter(g => (g.tags || []).includes(t)).length; return (
-          <button key={t} onClick={() => setTagFilter(tagFilter === t ? null : t)} style={{ padding: "3px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0, background: tagFilter === t ? "var(--gd)" : "var(--cr)", color: tagFilter === t ? "#fff" : "var(--gr)", border: `1px solid ${tagFilter === t ? "var(--gd)" : "var(--bd)"}` }}>{t} <span style={{ opacity: .6 }}>{cnt}</span></button>
-        ); })}
-      </div>}
+
+      <Card style={{ marginBottom: 12, padding: "10px 12px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontSize: 12, color: "var(--gr)" }}>Exportul listelor este disponibil în secțiunea <b>Unelte</b>.</div>
+          <button onClick={() => setTab("tools")} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 11, fontWeight: 600, color: "var(--gd)", border: "1px solid var(--bd)", background: "var(--cd)", whiteSpace: "nowrap" }}>Vezi Unelte →</button>
+        </div>
+      </Card>
 
       {/* Quick add with configurable groups */}
       <Card style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(184,149,106,.03)", border: "1.5px dashed var(--gl)" }}>
@@ -106,10 +104,10 @@ function Guests() {
           <button onClick={quickAdd} style={{ width: 38, height: 38, borderRadius: "var(--rs)", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {[{k:"single",l:"👤 Single"},{k:"couple",l:"👫 Cuplu"},{k:"family",l:"👨‍👩‍👧 Familie"}].map(t => (
+          {[{k:"single",l:"👤 Single"},{k:"family",l:"👨‍👩 Familie"},{k:"extendedFamily",l:"👨‍👩‍👧‍👦 Familie extinsă"}].map(t => (
             <button key={t.k} onClick={() => setQType(t.k)} style={{ padding: "5px 9px", borderRadius: 12, fontSize: 11, fontWeight: 600, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
           ))}
-          {qType === "family" && <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 2 }}>
+          {qType === "extendedFamily" && <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 2 }}>
             <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Persoane</span>
             <button onClick={() => setQFamilySize(v => Math.max(3, v - 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>−</button>
             <span style={{ minWidth: 14, textAlign: "center", fontSize: 12, fontWeight: 700, color: "var(--gd)" }}>{qFamilySize}</span>
@@ -136,7 +134,7 @@ function Guests() {
               </button>
               <div style={{ flex: 1, minWidth: 0 }} onClick={() => { setEditing(g); setShowForm(true) }}>
                 <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</div>
-                <div style={{ display: "flex", gap: 3, marginTop: 1, flexWrap: "wrap" }}>{g.dietary && <Badge c="rose">{g.dietary}</Badge>}{g.tid && <Badge c="green">Așezat</Badge>}{g.notes && <span style={{ fontSize: 10, color: "var(--mt)" }} title={g.notes}>📝</span>}{(g.tags||[]).map(t=><Badge key={t} c="blue">{t}</Badge>)}</div>
+                <div style={{ display: "flex", gap: 3, marginTop: 1, flexWrap: "wrap" }}>{g.dietary && <Badge c="rose">{g.dietary}</Badge>}{g.tid && <Badge c="green">Așezat</Badge>}{g.notes && <span style={{ fontSize: 10, color: "var(--mt)" }} title={g.notes}>📝</span>}</div>
               </div>
               <button onClick={(e) => { e.stopPropagation(); setConfirmDel(g.id) }} style={{ padding: 4, color: "var(--ft)" }}>{ic.trash}</button>
             </div>
@@ -158,10 +156,8 @@ function Guests() {
 function GuestFormInner({ guest, onClose }) {
   const { state, dispatch } = useData();
   const groups = state.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
-  const allTags = state.tags || ["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă"];
-  const [formData, setFormData] = useState(guest ? { ...guest, tags: guest.tags || [], count: guest.count || 1 } : { name: "", group: groups[0], rsvp: "pending", dietary: "", notes: "", tags: [], count: 1 });
+  const [formData, setFormData] = useState(guest ? { ...guest, count: guest.count || 1 } : { name: "", group: groups[0], rsvp: "pending", dietary: "", notes: "", count: 1 });
   const updater = k => v => setFormData(x => ({ ...x, [k]: v }));
-  const toggleTag = t => setFormData(x => ({ ...x, tags: x.tags.includes(t) ? x.tags.filter(v => v !== t) : [...x.tags, t] }));
   return <>
     <Fld label="Nume" value={formData.name} onChange={updater("name")} />
     <div style={{display:"flex",gap:8,marginBottom:12}}>
@@ -174,14 +170,6 @@ function GuestFormInner({ guest, onClose }) {
     </div>
     <Fld label="RSVP" value={formData.rsvp} onChange={updater("rsvp")} options={[{ value: "pending", label: "Așteptare" }, { value: "confirmed", label: "Confirmat" }, { value: "declined", label: "Refuzat" }]} />
     <Fld label="Restricții alimentare" value={formData.dietary} onChange={updater("dietary")} placeholder="vegetarian, vegan..." />
-    <div style={{ marginBottom: 12 }}>
-      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 5 }}>Tag-uri</label>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-        {allTags.map(t => (
-          <button key={t} onClick={() => toggleTag(t)} style={{ padding: "4px 10px", borderRadius: 12, fontSize: 11, fontWeight: 600, background: formData.tags.includes(t) ? "var(--gd)" : "var(--cr)", color: formData.tags.includes(t) ? "#fff" : "var(--gr)", border: `1px solid ${formData.tags.includes(t) ? "var(--gd)" : "var(--bd)"}` }}>{t}</button>
-        ))}
-      </div>
-    </div>
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Vine cu copil, necesită cazare..." />
     <Btn full onClick={() => { dispatch({ type: guest ? "UPD_GUEST" : "ADD_GUEST", p: { ...formData, id: guest?.id || mkid(), tid: formData.tid || null } }); onClose() }} disabled={!formData.name}>{guest ? "Salvează" : "Adaugă"}</Btn>
   </>;
