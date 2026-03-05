@@ -139,6 +139,9 @@ function Guests() {
           <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 150 }}>
             {guestGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
           </select>
+          <button onClick={() => setShowManageGroups(true)} style={{ height: 38, padding: "0 9px", borderRadius: "var(--rs)", border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 11, color: "var(--gd)", fontWeight: 600, whiteSpace: "nowrap" }}>
+            + categorie
+          </button>
           <button onClick={quickAdd} style={{ width: 38, height: 38, borderRadius: "var(--rs)", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -190,7 +193,7 @@ function Guests() {
       <ImportCSV open={showImport} onClose={() => setShowImport(false)} guestGroups={guestGroups} />
 
       <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Editare" : "Invitat nou"}>
-        {showForm && <GuestFormInner guest={editing} onClose={() => { setShowForm(false); setEditing(null); }} onManageGroups={() => setShowManageGroups(true)} guestGroups={guestGroups} />}
+        {showForm && <GuestFormInner guest={editing} onClose={() => { setShowForm(false); setEditing(null); }} guestGroups={guestGroups} />}
       </Modal>
 
       <ManageGuestGroupsModal
@@ -206,7 +209,7 @@ function Guests() {
   );
 }
 
-function GuestFormInner({ guest, onClose, onManageGroups, guestGroups }) {
+function GuestFormInner({ guest, onClose, guestGroups }) {
   const { dispatch } = useData();
   const [formData, setFormData] = useState(guest
     ? { ...guest, count: guest.count || 1, groupId: guest.groupId || guestGroups[0]?.id || null, group: guest.group || guestGroups[0]?.name || "Prieteni" }
@@ -224,9 +227,6 @@ function GuestFormInner({ guest, onClose, onManageGroups, guestGroups }) {
       <div style={{ flex: 1 }}>
         <Fld label="Grup" value={formData.groupId || ""} onChange={changeGroup} options={guestGroups.map(group => ({ value: group.id, label: group.name }))} />
       </div>
-      <button onClick={onManageGroups} style={{ marginTop: 22, height: 40, padding: "0 10px", borderRadius: "var(--rs)", border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 11, color: "var(--gd)", fontWeight: 600 }}>
-        + categorie
-      </button>
       <div style={{ width: 100 }}>
         <Fld label="Persoane" value={formData.count} onChange={v => updater("count")(Number(v) || 1)} options={[{ value: 1, label: "👤 1" }, { value: 2, label: "👫 2" }, { value: 3, label: "👨‍👩‍👧 3" }, { value: 4, label: "👨‍👩‍👧‍👦 4" }, { value: 5, label: "5" }, { value: 6, label: "6" }]} />
       </div>
