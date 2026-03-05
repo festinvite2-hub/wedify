@@ -38,9 +38,7 @@ function Guests() {
   const [qn, setQn] = useState("");
   const [qg, setQg] = useState("");
   const [qType, setQType] = useState("single");
-  const [qFamilySize, setQFamilySize] = useState(4);
   const [confirmDel, setConfirmDel] = useState(null);
-  const [showImport, setShowImport] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showManageGroups, setShowManageGroups] = useState(false);
   const ref = useRef(null);
@@ -88,7 +86,7 @@ function Guests() {
   }, [state.guests, groupNameById]);
   const gCl = ["#B8956A", "#8BA888", "#D4A0A0", "#5A82B4", "#C9A032", "#9A9A9A", "#A088B8", "#B85C5C"];
 
-  const quickCount = qType === "family" ? 2 : qType === "extendedFamily" ? Math.max(3, Number(qFamilySize) || 4) : 1;
+  const quickCount = qType === "family" ? 2 : qType === "extendedFamily" ? 4 : 1;
   const selectedQuickGroup = guestGroups.find(group => group.id === qg) || guestGroups[0];
   const quickAdd = () => {
     const n = qn.trim();
@@ -129,32 +127,45 @@ function Guests() {
         </div>
       </Card>
 
-      <Card style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(184,149,106,.03)", border: "1.5px dashed var(--gl)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--gd)" }}>⚡ Adaugă rapid</div>
-          <button onClick={() => setShowImport(true)} style={{ fontSize: 10, fontWeight: 600, color: "var(--g)", padding: "3px 8px", borderRadius: 8, background: "rgba(184,149,106,.08)" }}>📥 Import CSV</button>
-        </div>
-        <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
-          <input ref={ref} value={qn} onChange={e => setQn(e.target.value)} onKeyDown={e => e.key === "Enter" && quickAdd()} placeholder="Nume invitat/familie..." style={{ flex: 1, padding: "9px 11px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13 }} />
-          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 150 }}>
-            {guestGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
-          </select>
-          <button onClick={() => setShowManageGroups(true)} style={{ height: 38, padding: "0 9px", borderRadius: "var(--rs)", border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 11, color: "var(--gd)", fontWeight: 600, whiteSpace: "nowrap" }}>
-            + categorie
+      <Card style={{ marginBottom: 12, padding: "12px", background: "rgba(184,149,106,.04)", border: "1.5px solid var(--gl)" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--gd)", marginBottom: 10 }}>Adăugare invitat</div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <input
+            ref={ref}
+            value={qn}
+            onChange={e => setQn(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && qn.trim() && quickAdd()}
+            placeholder="Nume invitat/familie..."
+            style={{ width: "100%", padding: "11px 12px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 14 }}
+          />
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
+            <select value={qg} onChange={e => setQg(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13, color: "var(--gr)", minHeight: 44 }}>
+              {guestGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
+            </select>
+            <button onClick={() => setShowManageGroups(true)} aria-label="Gestionează categorii" title="Gestionează categorii" style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 18, color: "var(--gd)", fontWeight: 700, lineHeight: 1 }}>
+              +
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
+            {[{ k: "single", l: "Single" }, { k: "family", l: "Familie" }, { k: "extendedFamily", l: "Familie extinsă" }].map(t => (
+              <button key={t.k} onClick={() => setQType(t.k)} style={{ minHeight: 42, padding: "8px 6px", borderRadius: 12, fontSize: 11, fontWeight: 700, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 11, color: "var(--mt)", textAlign: "center", marginTop: 2 }}>
+            Se vor adăuga <b style={{ color: "var(--gd)" }}>{quickCount}</b> persoane
+          </div>
+
+          <button
+            onClick={quickAdd}
+            disabled={!qn.trim()}
+            style={{ width: "100%", minHeight: 46, borderRadius: "var(--rs)", background: qn.trim() ? "var(--g)" : "var(--cr2)", color: qn.trim() ? "#fff" : "var(--mt)", border: "1px solid transparent", fontSize: 14, fontWeight: 700, marginTop: 2 }}
+          >
+            Adaugă
           </button>
-          <button onClick={quickAdd} style={{ width: 38, height: 38, borderRadius: "var(--rs)", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {[{ k: "single", l: "👤 Single" }, { k: "family", l: "👨‍👩 Familie" }, { k: "extendedFamily", l: "👨‍👩‍👧‍👦 Familie extinsă" }].map(t => (
-            <button key={t.k} onClick={() => setQType(t.k)} style={{ padding: "5px 9px", borderRadius: 12, fontSize: 11, fontWeight: 600, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
-          ))}
-          {qType === "extendedFamily" && <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 2 }}>
-            <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Persoane</span>
-            <button onClick={() => setQFamilySize(v => Math.max(3, v - 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>−</button>
-            <span style={{ minWidth: 14, textAlign: "center", fontSize: 11, fontWeight: 700, color: "var(--gd)" }}>{Math.max(3, qFamilySize)}</span>
-            <button onClick={() => setQFamilySize(v => Math.max(3, v + 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>+</button>
-          </div>}
-          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--mt)" }}>Se vor adăuga <b style={{ color: "var(--gd)" }}>{quickCount}</b> persoane</span>
         </div>
       </Card>
 
@@ -190,7 +201,6 @@ function Guests() {
 
       <ConfirmDialog open={!!confirmDel} onClose={() => setConfirmDel(null)} onConfirm={() => dispatch({ type: "DEL_GUEST", p: confirmDel })} title="Șterge invitatul?" message="Invitatul va fi eliminat din listă și de la masă. Acțiunea nu poate fi anulată." />
 
-      <ImportCSV open={showImport} onClose={() => setShowImport(false)} guestGroups={guestGroups} />
 
       <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Editare" : "Invitat nou"}>
         {showForm && <GuestFormInner guest={editing} onClose={() => { setShowForm(false); setEditing(null); }} guestGroups={guestGroups} />}
@@ -311,69 +321,6 @@ function ManageGuestGroupsModal({ open, onClose, guestGroups, guests, weddingId,
   );
 }
 
-function ImportCSV({ open, onClose, guestGroups }) {
-  const { dispatch, showToast } = useData();
-  const [raw, setRaw] = useState("");
-  const [preview, setPreview] = useState([]);
 
-  const parse = (text) => {
-    const lines = text.trim().split("\n").filter(l => l.trim());
-    const guests = [];
-    for (const line of lines) {
-      const parts = line.split(/[,;\t]/).map(p => p.trim().replace(/^["']|["']$/g, ""));
-      if (parts[0] && parts[0].length > 1) {
-        const matchGroup = guestGroups.find(group => parts[1] && group.name.toLowerCase() === parts[1].toLowerCase()) || guestGroups[0];
-        guests.push({
-          id: mkid(),
-          name: parts[0],
-          group: matchGroup?.name || "Prieteni",
-          groupId: matchGroup?.id || null,
-          rsvp: "pending",
-          dietary: parts[2] || "",
-          tid: null,
-          notes: parts[3] || "",
-        });
-      }
-    }
-    return guests;
-  };
-
-  useEffect(() => { if (raw) setPreview(parse(raw)); else setPreview([]); }, [raw, guestGroups]);
-
-  const doImport = () => {
-    if (preview.length === 0) return;
-    dispatch({ type: "IMPORT_GUESTS", p: preview });
-    showToast?.(`${preview.length} invitați importați!`, "success");
-    setRaw("");
-    onClose();
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title="Import invitați">
-      <div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>
-        Lipește lista de invitați, câte un rând per invitat. Format: <b>Nume, Grup, Restricții</b> (doar numele e obligatoriu).
-      </div>
-      <textarea value={raw} onChange={e => setRaw(e.target.value)} placeholder={"Maria Popescu, Familie Mireasă, vegetarian\nIon Ionescu, Familie Mire\nElena Dragomir"} rows={6} style={{ width: "100%", padding: "11px 13px", background: "var(--cr)", border: "1.5px solid var(--bd)", borderRadius: "var(--rs)", fontSize: 13, fontFamily: "monospace", resize: "vertical", marginBottom: 10 }} />
-      {preview.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ok)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>
-            ✓ {preview.length} invitați detectați
-          </div>
-          <div style={{ maxHeight: 120, overflow: "auto", borderRadius: "var(--rs)", border: "1px solid var(--bd)" }}>
-            {preview.slice(0, 10).map((g, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderTop: i ? "1px solid var(--bd)" : "none", fontSize: 12 }}>
-                <span style={{ fontWeight: 600, flex: 1 }}>{g.name}</span>
-                <Badge c="gold">{g.group}</Badge>
-                {g.dietary && <Badge c="rose">{g.dietary}</Badge>}
-              </div>
-            ))}
-            {preview.length > 10 && <div style={{ padding: "6px 10px", fontSize: 11, color: "var(--mt)" }}>...și încă {preview.length - 10}</div>}
-          </div>
-        </div>
-      )}
-      <Btn full onClick={doImport} disabled={preview.length === 0}>Importă {preview.length} invitați</Btn>
-    </Modal>
-  );
-}
 
 export default Guests;
