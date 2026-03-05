@@ -10,6 +10,8 @@ import { Fld } from "../ui/Fld";
 import { Badge } from "../ui/Badge";
 import { SearchBar } from "../ui/SearchBar";
 
+const DEFAULT_GROUPS = ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
+
 function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
   if (!open) return null;
   return (
@@ -28,20 +30,38 @@ function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
 }
 
 function Guests() {
-  const { state, dispatch, setTab } = useData();
+  const { state, dispatch, setTab, weddingId, showToast } = useData();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [qn, setQn] = useState("");
-  const [qg, setQg] = useState(state.groups?.[0] || "Prieteni");
+  const [qg, setQg] = useState("");
   const [qType, setQType] = useState("single");
   const [qFamilySize, setQFamilySize] = useState(4);
   const [confirmDel, setConfirmDel] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showManageGroups, setShowManageGroups] = useState(false);
   const ref = useRef(null);
-  const groups = state.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
+
+  const groups = state.groups || DEFAULT_GROUPS;
+  const guestGroups = useMemo(() => {
+    if (Array.isArray(state.guestGroups) && state.guestGroups.length > 0) return state.guestGroups;
+    return groups.map((name, i) => ({ id: `legacy-${name}`, name, sort_order: i }));
+  }, [state.guestGroups, groups]);
+
+  const groupNameById = useMemo(() => new Map(guestGroups.map(group => [group.id, group.name])), [guestGroups]);
+  const getGuestGroupName = (guest) => {
+    if (guest.groupId && groupNameById.has(guest.groupId)) return groupNameById.get(guest.groupId);
+    if (guest.group) return guest.group;
+    return "Altele";
+  };
+
+  useEffect(() => {
+    if (!qg && guestGroups[0]?.id) setQg(guestGroups[0].id);
+    if (qg && !guestGroups.some(group => group.id === qg)) setQg(guestGroups[0]?.id || "");
+  }, [guestGroups, qg]);
 
   const list = useMemo(() => {
     let l = state.guests;
@@ -50,14 +70,34 @@ function Guests() {
     return l;
   }, [state.guests, filter, search]);
 
-  const grouped = useMemo(() => { const g = {}; list.forEach(x => { const k = x.group || "Altele"; if (!g[k]) g[k] = []; g[k].push(x) }); return g }, [list]);
+  const grouped = useMemo(() => {
+    const groupedGuests = {};
+    list.forEach(guest => {
+      const key = getGuestGroupName(guest);
+      if (!groupedGuests[key]) groupedGuests[key] = [];
+      groupedGuests[key].push(guest);
+    });
+    return groupedGuests;
+  }, [list, groupNameById]);
+
   const st = { total: state.guests.length, conf: state.guests.filter(g => g.rsvp === "confirmed").length, pend: state.guests.filter(g => g.rsvp === "pending").length, totalPpl: sumGuests(state.guests), confPpl: sumGuests(state.guests.filter(g => g.rsvp === "confirmed")), pendPpl: sumGuests(state.guests.filter(g => g.rsvp === "pending")) };
-  const groupStats = useMemo(() => { const gs = {}; state.guests.forEach(g => { const k = g.group || "Altele"; gs[k] = (gs[k] || 0) + 1 }); return Object.entries(gs).map(([name, count]) => ({ name, count, pct: Math.round((count / Math.max(state.guests.length, 1)) * 100) })); }, [state.guests]);
-  const gCl = ["#B8956A","#8BA888","#D4A0A0","#5A82B4","#C9A032","#9A9A9A","#A088B8","#B85C5C"];
+  const groupStats = useMemo(() => {
+    const gs = {};
+    state.guests.forEach(guest => { const k = getGuestGroupName(guest); gs[k] = (gs[k] || 0) + 1; });
+    return Object.entries(gs).map(([name, count]) => ({ name, count, pct: Math.round((count / Math.max(state.guests.length, 1)) * 100) }));
+  }, [state.guests, groupNameById]);
+  const gCl = ["#B8956A", "#8BA888", "#D4A0A0", "#5A82B4", "#C9A032", "#9A9A9A", "#A088B8", "#B85C5C"];
 
   const quickCount = qType === "family" ? 2 : qType === "extendedFamily" ? Math.max(3, Number(qFamilySize) || 4) : 1;
-  const quickAdd = () => { const n = qn.trim(); if (!n) return; dispatch({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: quickCount } }); setQn(""); ref.current?.focus() };
-  const cycleRsvp = g => { const nx = { pending: "confirmed", confirmed: "declined", declined: "pending" }; dispatch({ type: "UPD_GUEST", p: { id: g.id, rsvp: nx[g.rsvp] } }) };
+  const selectedQuickGroup = guestGroups.find(group => group.id === qg) || guestGroups[0];
+  const quickAdd = () => {
+    const n = qn.trim();
+    if (!n || !selectedQuickGroup) return;
+    dispatch({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: selectedQuickGroup.name, groupId: selectedQuickGroup.id, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: quickCount } });
+    setQn("");
+    ref.current?.focus();
+  };
+  const cycleRsvp = g => { const nx = { pending: "confirmed", confirmed: "declined", declined: "pending" }; dispatch({ type: "UPD_GUEST", p: { id: g.id, rsvp: nx[g.rsvp] } }); };
 
   return (
     <div className="fu" style={{ padding: "0 14px 20px" }}>
@@ -82,7 +122,6 @@ function Guests() {
         ))}
       </Card>}
 
-
       <Card style={{ marginBottom: 12, padding: "10px 12px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ fontSize: 12, color: "var(--gr)" }}>Exportul listelor este disponibil în secțiunea <b>Unelte</b>.</div>
@@ -90,7 +129,6 @@ function Guests() {
         </div>
       </Card>
 
-      {/* Quick add with configurable groups */}
       <Card style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(184,149,106,.03)", border: "1.5px dashed var(--gl)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--gd)" }}>⚡ Adaugă rapid</div>
@@ -98,102 +136,198 @@ function Guests() {
         </div>
         <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
           <input ref={ref} value={qn} onChange={e => setQn(e.target.value)} onKeyDown={e => e.key === "Enter" && quickAdd()} placeholder="Nume invitat/familie..." style={{ flex: 1, padding: "9px 11px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13 }} />
-          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 110 }}>
-            {groups.map(g => <option key={g} value={g}>{g}</option>)}
+          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 150 }}>
+            {guestGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
           </select>
           <button onClick={quickAdd} style={{ width: 38, height: 38, borderRadius: "var(--rs)", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {[{k:"single",l:"👤 Single"},{k:"family",l:"👨‍👩 Familie"},{k:"extendedFamily",l:"👨‍👩‍👧‍👦 Familie extinsă"}].map(t => (
+          {[{ k: "single", l: "👤 Single" }, { k: "family", l: "👨‍👩 Familie" }, { k: "extendedFamily", l: "👨‍👩‍👧‍👦 Familie extinsă" }].map(t => (
             <button key={t.k} onClick={() => setQType(t.k)} style={{ padding: "5px 9px", borderRadius: 12, fontSize: 11, fontWeight: 600, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
           ))}
           {qType === "extendedFamily" && <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 2 }}>
             <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Persoane</span>
             <button onClick={() => setQFamilySize(v => Math.max(3, v - 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>−</button>
-            <span style={{ minWidth: 14, textAlign: "center", fontSize: 12, fontWeight: 700, color: "var(--gd)" }}>{qFamilySize}</span>
-            <button onClick={() => setQFamilySize(v => Math.min(12, v + 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>+</button>
+            <span style={{ minWidth: 14, textAlign: "center", fontSize: 11, fontWeight: 700, color: "var(--gd)" }}>{Math.max(3, qFamilySize)}</span>
+            <button onClick={() => setQFamilySize(v => Math.max(3, v + 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>+</button>
           </div>}
-          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--mt)", fontWeight: 600 }}>Se adaugă: {quickCount} pers.</span>
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--mt)" }}>Se vor adăuga <b style={{ color: "var(--gd)" }}>{quickCount}</b> persoane</span>
         </div>
       </Card>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="Caută..." style={{ marginBottom: 12 }} />
+      <SearchBar value={search} onChange={setSearch} placeholder="Caută invitat..." />
 
-      {Object.entries(grouped).map(([gn, gl]) => (
-        <div key={gn} style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 5, paddingLeft: 2 }}>{gn} ({gl.length})</div>
-          {gl.map(g => (
-            <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "var(--cd)", borderRadius: "var(--rs)", border: "1px solid var(--bd)", marginBottom: 5 }}>
-              <button onClick={() => cycleRsvp(g)} title="Apasă pentru a schimba statusul" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: g.rsvp === "confirmed" ? "var(--ok)" : g.rsvp === "declined" ? "var(--er)" : "var(--cr2)", color: g.rsvp === "pending" ? "var(--mt)" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, border: g.rsvp === "pending" ? "2px dashed var(--ft)" : "none", transition: "all .2s" }}>
-                  {g.rsvp === "confirmed" ? "✓" : g.rsvp === "declined" ? "✕" : "?"}
-                </div>
-                <span style={{ fontSize: 8, fontWeight: 600, color: g.rsvp === "confirmed" ? "var(--ok)" : g.rsvp === "declined" ? "var(--er)" : "var(--mt)", textTransform: "uppercase", letterSpacing: ".04em", lineHeight: 1 }}>
-                  {g.rsvp === "confirmed" ? "Da" : g.rsvp === "declined" ? "Nu" : "Apasă"}
-                </span>
-              </button>
-              <div style={{ flex: 1, minWidth: 0 }} onClick={() => { setEditing(g); setShowForm(true) }}>
-                <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</div>
-                <div style={{ display: "flex", gap: 3, marginTop: 1, flexWrap: "wrap" }}>{g.dietary && <Badge c="rose">{g.dietary}</Badge>}{g.tid && <Badge c="green">Așezat</Badge>}{g.notes && <span style={{ fontSize: 10, color: "var(--mt)" }} title={g.notes}>📝</span>}</div>
-              </div>
-              <button onClick={(e) => { e.stopPropagation(); setConfirmDel(g.id) }} style={{ padding: 4, color: "var(--ft)" }}>{ic.trash}</button>
+      <div style={{ marginTop: 10 }}>
+        {Object.keys(grouped).length === 0 && <Card style={{ textAlign: "center", color: "var(--mt)" }}>Niciun invitat.</Card>}
+        {Object.entries(grouped).map(([grp, arr]) => (
+          <div key={grp} style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <Badge c="gold">{grp}</Badge><span style={{ fontSize: 10, color: "var(--mt)" }}>{arr.length} invitați · {sumGuests(arr)} pers.</span>
             </div>
-          ))}
-        </div>
-      ))}
+            {arr.map(g => (
+              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "var(--cd)", borderRadius: "var(--rs)", border: "1px solid var(--bd)", marginBottom: 5 }}>
+                <button onClick={() => cycleRsvp(g)} title="Apasă pentru a schimba statusul" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: g.rsvp === "confirmed" ? "var(--ok)" : g.rsvp === "declined" ? "var(--er)" : "var(--cr2)", color: g.rsvp === "pending" ? "var(--mt)" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, border: g.rsvp === "pending" ? "2px dashed var(--ft)" : "none", transition: "all .2s" }}>
+                    {g.rsvp === "confirmed" ? "✓" : g.rsvp === "declined" ? "✕" : "?"}
+                  </div>
+                  <span style={{ fontSize: 8, fontWeight: 600, color: g.rsvp === "confirmed" ? "var(--ok)" : g.rsvp === "declined" ? "var(--er)" : "var(--mt)", textTransform: "uppercase", letterSpacing: ".04em", lineHeight: 1 }}>
+                    {g.rsvp === "confirmed" ? "Da" : g.rsvp === "declined" ? "Nu" : "Apasă"}
+                  </span>
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }} onClick={() => { setEditing(g); setShowForm(true); }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{gTypeIcon(g)} {g.name}</div>
+                  <div style={{ display: "flex", gap: 3, marginTop: 1, flexWrap: "wrap" }}><Badge c="gold">{gCount(g)}p · {gTypeLabel(g)}</Badge>{g.dietary && <Badge c="rose">{g.dietary}</Badge>}{g.tid && <Badge c="green">Așezat</Badge>}{g.notes && <span style={{ fontSize: 10, color: "var(--mt)" }} title={g.notes}>📝</span>}</div>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); setConfirmDel(g.id); }} style={{ padding: 4, color: "var(--ft)" }}>{ic.trash}</button>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
 
       <ConfirmDialog open={!!confirmDel} onClose={() => setConfirmDel(null)} onConfirm={() => dispatch({ type: "DEL_GUEST", p: confirmDel })} title="Șterge invitatul?" message="Invitatul va fi eliminat din listă și de la masă. Acțiunea nu poate fi anulată." />
 
-      <ImportCSV open={showImport} onClose={() => setShowImport(false)} />
+      <ImportCSV open={showImport} onClose={() => setShowImport(false)} guestGroups={guestGroups} />
 
-      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null) }} title={editing ? "Editare" : "Invitat nou"}>
-        {showForm && <GuestFormInner guest={editing} onClose={() => { setShowForm(false); setEditing(null) }} />}
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Editare" : "Invitat nou"}>
+        {showForm && <GuestFormInner guest={editing} onClose={() => { setShowForm(false); setEditing(null); }} onManageGroups={() => setShowManageGroups(true)} guestGroups={guestGroups} />}
       </Modal>
+
+      <ManageGuestGroupsModal
+        open={showManageGroups}
+        onClose={() => setShowManageGroups(false)}
+        guestGroups={guestGroups}
+        guests={state.guests}
+        weddingId={weddingId}
+        dispatch={dispatch}
+        showToast={showToast}
+      />
     </div>
   );
 }
 
-function GuestFormInner({ guest, onClose }) {
-  const { state, dispatch } = useData();
-  const groups = state.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
-  const [formData, setFormData] = useState(guest ? { ...guest, count: guest.count || 1 } : { name: "", group: groups[0], rsvp: "pending", dietary: "", notes: "", count: 1 });
+function GuestFormInner({ guest, onClose, onManageGroups, guestGroups }) {
+  const { dispatch } = useData();
+  const [formData, setFormData] = useState(guest
+    ? { ...guest, count: guest.count || 1, groupId: guest.groupId || guestGroups[0]?.id || null, group: guest.group || guestGroups[0]?.name || "Prieteni" }
+    : { name: "", group: guestGroups[0]?.name || "Prieteni", groupId: guestGroups[0]?.id || null, rsvp: "pending", dietary: "", notes: "", count: 1 });
   const updater = k => v => setFormData(x => ({ ...x, [k]: v }));
+
+  const changeGroup = (groupId) => {
+    const selected = guestGroups.find(group => group.id === groupId);
+    setFormData(x => ({ ...x, groupId, group: selected?.name || x.group }));
+  };
+
   return <>
     <Fld label="Nume" value={formData.name} onChange={updater("name")} />
-    <div style={{display:"flex",gap:8,marginBottom:12}}>
-      <div style={{flex:1}}>
-        <Fld label="Grup" value={formData.group} onChange={updater("group")} options={groups} />
+    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <div style={{ flex: 1 }}>
+        <Fld label="Grup" value={formData.groupId || ""} onChange={changeGroup} options={guestGroups.map(group => ({ value: group.id, label: group.name }))} />
       </div>
-      <div style={{width:100}}>
-        <Fld label="Persoane" value={formData.count} onChange={v=>updater("count")(Number(v)||1)} options={[{value:1,label:"👤 1"},{value:2,label:"👫 2"},{value:3,label:"👨‍👩‍👧 3"},{value:4,label:"👨‍👩‍👧‍👦 4"},{value:5,label:"5"},{value:6,label:"6"}]} />
+      <button onClick={onManageGroups} style={{ marginTop: 22, height: 40, padding: "0 10px", borderRadius: "var(--rs)", border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 11, color: "var(--gd)", fontWeight: 600 }}>
+        + categorie
+      </button>
+      <div style={{ width: 100 }}>
+        <Fld label="Persoane" value={formData.count} onChange={v => updater("count")(Number(v) || 1)} options={[{ value: 1, label: "👤 1" }, { value: 2, label: "👫 2" }, { value: 3, label: "👨‍👩‍👧 3" }, { value: 4, label: "👨‍👩‍👧‍👦 4" }, { value: 5, label: "5" }, { value: 6, label: "6" }]} />
       </div>
     </div>
     <Fld label="RSVP" value={formData.rsvp} onChange={updater("rsvp")} options={[{ value: "pending", label: "Așteptare" }, { value: "confirmed", label: "Confirmat" }, { value: "declined", label: "Refuzat" }]} />
     <Fld label="Restricții alimentare" value={formData.dietary} onChange={updater("dietary")} placeholder="vegetarian, vegan..." />
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Vine cu copil, necesită cazare..." />
-    <Btn full onClick={() => { dispatch({ type: guest ? "UPD_GUEST" : "ADD_GUEST", p: { ...formData, id: guest?.id || mkid(), tid: formData.tid || null } }); onClose() }} disabled={!formData.name}>{guest ? "Salvează" : "Adaugă"}</Btn>
+    <Btn full onClick={() => { dispatch({ type: guest ? "UPD_GUEST" : "ADD_GUEST", p: { ...formData, id: guest?.id || mkid(), tid: formData.tid || null } }); onClose(); }} disabled={!formData.name}>{guest ? "Salvează" : "Adaugă"}</Btn>
   </>;
 }
 
-// ── Seated Guest Row (extracted for hooks) ──────────────────
+function ManageGuestGroupsModal({ open, onClose, guestGroups, guests, weddingId, dispatch, showToast }) {
+  const [newName, setNewName] = useState("");
+  const [saving, setSaving] = useState(false);
 
-function ImportCSV({ open, onClose }) {
-  const { state, dispatch, showToast } = useData();
+  const customGroups = guestGroups.filter(group => !DEFAULT_GROUPS.includes(group.name) && group.name !== "Altele");
+  const fallback = guestGroups.find(group => group.name === "Altele") || guestGroups.find(group => !customGroups.some(custom => custom.id === group.id));
+
+  const addGroup = async () => {
+    const name = newName.trim();
+    if (!name || !weddingId) return;
+    if (guestGroups.some(group => group.name.toLowerCase() === name.toLowerCase())) {
+      showToast?.("Categoria există deja.", "warning");
+      return;
+    }
+    setSaving(true);
+    try {
+      const created = await dbSync.addGuestGroup(weddingId, { name, sortOrder: guestGroups.length + 1 });
+      if (created) dispatch({ type: "SET", p: { guestGroups: [...guestGroups, created] } });
+      setNewName("");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renameGroup = async (groupId, name) => {
+    const next = name.trim();
+    if (!next) return;
+    await dbSync.updateGuestGroup(groupId, { name: next });
+    dispatch({ type: "SET", p: { guestGroups: guestGroups.map(group => group.id === groupId ? { ...group, name: next } : group), guests: guests.map(guest => guest.groupId === groupId ? { ...guest, group: next } : guest) } });
+  };
+
+  const deleteGroup = async (groupId) => {
+    if (!weddingId || !fallback || fallback.id === groupId) return;
+    await dbSync.reassignGuestsGroup(weddingId, groupId, fallback.id, fallback.name);
+    await dbSync.deleteGuestGroup(groupId);
+    dispatch({
+      type: "SET",
+      p: {
+        guestGroups: guestGroups.filter(group => group.id !== groupId),
+        guests: guests.map(guest => guest.groupId === groupId ? { ...guest, groupId: fallback.id, group: fallback.name } : guest),
+      },
+    });
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Categorii invitați">
+      <div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>Adaugă categorii noi și gestionează doar categoriile personalizate.</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nume categorie nouă" style={{ flex: 1, padding: "10px 12px", borderRadius: "var(--rs)", border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 13 }} />
+        <Btn onClick={addGroup} disabled={saving || !newName.trim()}>Adaugă</Btn>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {guestGroups.map(group => {
+          const isCustom = customGroups.some(custom => custom.id === group.id);
+          return (
+            <div key={group.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "1px solid var(--bd)", borderRadius: "var(--rs)" }}>
+              <input
+                defaultValue={group.name}
+                disabled={!isCustom}
+                onBlur={e => isCustom && e.target.value !== group.name && renameGroup(group.id, e.target.value)}
+                style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--bd)", background: isCustom ? "var(--cd)" : "var(--cr)", fontSize: 12 }}
+              />
+              {!isCustom && <Badge c="gray">Implicit</Badge>}
+              {isCustom && <button onClick={() => deleteGroup(group.id)} style={{ fontSize: 11, color: "var(--er)", padding: "6px 8px" }}>Șterge</button>}
+            </div>
+          );
+        })}
+      </div>
+    </Modal>
+  );
+}
+
+function ImportCSV({ open, onClose, guestGroups }) {
+  const { dispatch, showToast } = useData();
   const [raw, setRaw] = useState("");
   const [preview, setPreview] = useState([]);
-  const groups = state.groups || ["Prieteni"];
 
   const parse = (text) => {
     const lines = text.trim().split("\n").filter(l => l.trim());
     const guests = [];
     for (const line of lines) {
-      // Support: "Name, Group, Dietary" or just "Name"
       const parts = line.split(/[,;\t]/).map(p => p.trim().replace(/^["']|["']$/g, ""));
       if (parts[0] && parts[0].length > 1) {
+        const matchGroup = guestGroups.find(group => parts[1] && group.name.toLowerCase() === parts[1].toLowerCase()) || guestGroups[0];
         guests.push({
           id: mkid(),
           name: parts[0],
-          group: parts[1] && groups.includes(parts[1]) ? parts[1] : groups[0],
+          group: matchGroup?.name || "Prieteni",
+          groupId: matchGroup?.id || null,
           rsvp: "pending",
           dietary: parts[2] || "",
           tid: null,
@@ -204,7 +338,7 @@ function ImportCSV({ open, onClose }) {
     return guests;
   };
 
-  useEffect(() => { if (raw) setPreview(parse(raw)); else setPreview([]); }, [raw]);
+  useEffect(() => { if (raw) setPreview(parse(raw)); else setPreview([]); }, [raw, guestGroups]);
 
   const doImport = () => {
     if (preview.length === 0) return;
@@ -241,9 +375,5 @@ function ImportCSV({ open, onClose }) {
     </Modal>
   );
 }
-
-// ═══════════════════════════════════════════════════════════════
-// 🎉 ONBOARDING WIZARD
-// ═══════════════════════════════════════════════════════════════
 
 export default Guests;
