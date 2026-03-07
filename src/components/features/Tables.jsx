@@ -311,8 +311,4 @@ function EditTableForm({ table, onClose }) {
   </>;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// BUDGET — Enhanced dashboard
-// ═══════════════════════════════════════════════════════════════
-
 export default Tables;
