@@ -3,27 +3,11 @@ import { useData } from "../context/DataContext";
 import { mkid, fmtD, fmtC, parseBudgetNotes, serializeBudgetNotes } from "../lib/utils";
 import { ic } from "../lib/icons";
 import { Btn } from "../ui/Btn";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Card } from "../ui/Card";
 import { Modal } from "../ui/Modal";
 import { Fld } from "../ui/Fld";
 import { Badge } from "../ui/Badge";
-
-function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
-  if (!open) return null;
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.35)", backdropFilter: "blur(3px)" }} />
-      <div style={{ position: "relative", width: "100%", maxWidth: 320, background: "var(--cd)", color: "var(--ink)", borderRadius: "var(--r)", padding: "24px 20px", boxShadow: "0 12px 40px rgba(0,0,0,.15)", animation: "fadeUp .25s ease-out both" }}>
-        <h4 style={{ fontFamily: "var(--fd)", fontSize: 18, fontWeight: 500, marginBottom: 8 }}>{title || "Confirmare"}</h4>
-        <p style={{ fontSize: 13, color: "var(--gr)", marginBottom: 20, lineHeight: 1.5 }}>{message || "Ești sigur? Acțiunea nu poate fi anulată."}</p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn v="secondary" onClick={onClose} full>Anulează</Btn>
-          <Btn v="danger" onClick={() => { onConfirm(); onClose(); }} full>Șterge</Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function Budget() {
   const { state, dispatch } = useData();
@@ -72,7 +56,7 @@ function Budget() {
 
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>Categorii</span>
-        <Btn v="secondary" onClick={() => { setEditing(null); setShowForm(true) }} style={{ fontSize: 10, padding: "4px 10px" }}>{ic.plus} Adaugă</Btn>
+        <Btn variant="secondary" onClick={() => { setEditing(null); setShowForm(true) }} style={{ fontSize: 10, padding: "4px 10px" }}>{ic.plus} Adaugă</Btn>
       </div>
       {state.budget.map((b, i) => { const payload = Math.round((b.spent / Math.max(b.planned, 1)) * 100); return (
         <Card key={b.id} onClick={() => { setEditing(b); setShowForm(true) }} style={{ marginBottom: 7, cursor: "pointer", padding: 12 }}>
@@ -139,7 +123,7 @@ function BudgetFormInner({ item, onClose }) {
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         <input value={pNote} onChange={e => setPNote(e.target.value)} placeholder="Notă (avans, rată, rest...)" style={{ flex: 1, padding: "8px 10px", borderRadius: 8, background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 12 }} />
-        <Btn v="secondary" onClick={addPayment} style={{ fontSize: 11, padding: "8px 10px" }}>{ic.plus} Plată</Btn>
+        <Btn variant="secondary" onClick={addPayment} style={{ fontSize: 11, padding: "8px 10px" }}>{ic.plus} Plată</Btn>
       </div>
     </div>
 
@@ -148,15 +132,11 @@ function BudgetFormInner({ item, onClose }) {
     <Fld label="Status" value={formData.status} onChange={updater("status")} options={[{ value: "unpaid", label: "Neplătit" }, { value: "partial", label: "Parțial" }, { value: "paid", label: "Plătit" }]} />
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Plata în 2 rate, factură trimisă..." />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { const cleanNotes = formData.notes || ""; dispatch({ type: item ? "UPD_BUDGET" : "ADD_BUDGET", p: { ...formData, spent: effectiveSpent, notes: cleanNotes, id: item?.id || mkid() } }); onClose() }} disabled={!formData.cat}>Salvează</Btn>
-      {item && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
+      <Btn fullWidth onClick={() => { const cleanNotes = formData.notes || ""; dispatch({ type: item ? "UPD_BUDGET" : "ADD_BUDGET", p: { ...formData, spent: effectiveSpent, notes: cleanNotes, id: item?.id || mkid() } }); onClose() }} disabled={!formData.cat}>Salvează</Btn>
+      {item && <Btn variant="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
     <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "DEL_BUDGET", p: item.id }); onClose() }} title="Șterge categoria?" message={`"${item?.cat}" va fi eliminată din buget.`} />
   </>;
 }
-
-// ═══════════════════════════════════════════════════════════════
-// TASKS
-// ═══════════════════════════════════════════════════════════════
 
 export default Budget;
