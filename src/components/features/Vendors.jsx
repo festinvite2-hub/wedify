@@ -4,32 +4,14 @@ import { mkid } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
 import { Btn } from "../ui/Btn";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Card } from "../ui/Card";
 import { Modal } from "../ui/Modal";
 import { Fld } from "../ui/Fld";
 import { Badge } from "../ui/Badge";
 
-function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
-  if (!open) return null;
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.35)", backdropFilter: "blur(3px)" }} />
-      <div style={{ position: "relative", width: "100%", maxWidth: 320, background: "var(--cd)", color: "var(--ink)", borderRadius: "var(--r)", padding: "24px 20px", boxShadow: "0 12px 40px rgba(0,0,0,.15)", animation: "fadeUp .25s ease-out both" }}>
-        <h4 style={{ fontFamily: "var(--fd)", fontSize: 18, fontWeight: 500, marginBottom: 8 }}>{title || "Confirmare"}</h4>
-        <p style={{ fontSize: 13, color: "var(--gr)", marginBottom: 20, lineHeight: 1.5 }}>{message || "Ești sigur? Acțiunea nu poate fi anulată."}</p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn v="secondary" onClick={onClose} full>Anulează</Btn>
-          <Btn v="danger" onClick={() => { onConfirm(); onClose(); }} full>Șterge</Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function Stars({v,onChange}){return <div style={{display:"flex",gap:2}}>{[1,2,3,4,5].map(i=><button key={i} onClick={()=>onChange?.(i)} style={{padding:1,color:i<=v?"var(--g)":"var(--ft)"}}>{i<=v?ic.star:ic.starO}</button>)}</div>}
 
-// ─── AUTH ────────────────────────────────────────────────────
-// ─── Auth Screen (Supabase production) ───────────────────────
 
 function Vendors() {
   const { state, dispatch } = useData(); const [showForm, setShowForm] = useState(false); const [editing, setEditing] = useState(null); const [expandedId, setExpandedId] = useState(null);
