@@ -4,28 +4,12 @@ import { mkid, fmtD } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
 import { Btn } from "../ui/Btn";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Card } from "../ui/Card";
 import { Modal } from "../ui/Modal";
 import { Fld } from "../ui/Fld";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
-
-function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
-  if (!open) return null;
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.35)", backdropFilter: "blur(3px)" }} />
-      <div style={{ position: "relative", width: "100%", maxWidth: 320, background: "var(--cd)", color: "var(--ink)", borderRadius: "var(--r)", padding: "24px 20px", boxShadow: "0 12px 40px rgba(0,0,0,.15)", animation: "fadeUp .25s ease-out both" }}>
-        <h4 style={{ fontFamily: "var(--fd)", fontSize: 18, fontWeight: 500, marginBottom: 8 }}>{title || "Confirmare"}</h4>
-        <p style={{ fontSize: 13, color: "var(--gr)", marginBottom: 20, lineHeight: 1.5 }}>{message || "Ești sigur? Acțiunea nu poate fi anulată."}</p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn v="secondary" onClick={onClose} full>Anulează</Btn>
-          <Btn v="danger" onClick={() => { onConfirm(); onClose(); }} full>Șterge</Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function Tasks() {
   const { state, dispatch } = useData();
@@ -137,15 +121,11 @@ function TaskFormInner({ task, onClose }) {
     <Fld label="Categorie" value={formData.cat} onChange={updater("cat")} placeholder="Catering, Rochie, General..." />
     <Fld label="Prioritate" value={formData.prio} onChange={updater("prio")} options={[{ value: "low", label: "Scăzută" }, { value: "medium", label: "Medie" }, { value: "high", label: "Urgentă" }]} />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { dispatch({ type: task ? "UPD_TASK" : "ADD_TASK", p: { ...formData, id: task?.id || mkid() } }); onClose() }} disabled={!formData.title}>Salvează</Btn>
-      {task && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
+      <Btn fullWidth onClick={() => { dispatch({ type: task ? "UPD_TASK" : "ADD_TASK", p: { ...formData, id: task?.id || mkid() } }); onClose() }} disabled={!formData.title}>Salvează</Btn>
+      {task && <Btn variant="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
     <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "DEL_TASK", p: task.id }); onClose() }} title="Șterge task-ul?" message={`"${task?.title}" va fi eliminat.`} />
   </>;
 }
-
-// ═══════════════════════════════════════════════════════════════
-// VENDORS
-// ═══════════════════════════════════════════════════════════════
 
 export default Tasks;

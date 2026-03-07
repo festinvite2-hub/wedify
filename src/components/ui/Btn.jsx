@@ -8,12 +8,12 @@
  * @param {React.ReactNode} props.children
  * @param {Object} [props.style]
  */
-function Btn({ variant = "gold", size = "md", fullWidth = false, disabled, onClick, children, style, v, full, ...props }) {
-  const resolvedVariant = v ? ({ primary: "gold", secondary: "outline", ghost: "ghost", danger: "danger" }[v] || variant) : variant;
-  const resolvedFull = full !== undefined ? full : fullWidth;
+function Btn({ variant = "gold", size = "md", fullWidth = false, disabled, onClick, children, style, ...props }) {
   const variants = {
     gold: "bg-gold text-white border border-gold",
+    primary: "bg-gold text-white border border-gold",
     outline: "bg-transparent text-ink border border-border",
+    secondary: "bg-transparent text-ink border border-border",
     ghost: "bg-transparent text-gold-dark border border-transparent",
     danger: "bg-err text-white border border-err",
   };
@@ -27,7 +27,7 @@ function Btn({ variant = "gold", size = "md", fullWidth = false, disabled, onCli
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex items-center justify-center gap-[7px] rounded-sm font-semibold tracking-[.02em] transition-all ${sizes[size]} ${variants[resolvedVariant]} ${resolvedFull ? "w-full" : "w-auto"}`}
+      className={`inline-flex items-center justify-center gap-[7px] rounded-sm font-semibold tracking-[.02em] transition-all ${sizes[size]} ${variants[variant]} ${fullWidth ? "w-full" : "w-auto"}`}
       style={{ opacity: disabled ? 0.4 : 1, ...style }}
       {...props}
     >
