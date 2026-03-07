@@ -1,4 +1,4 @@
-import { useReducer, useState, useEffect, useCallback } from "react";
+import { useReducer, useState, useEffect, useCallback, useRef } from "react";
 import { EMPTY_STATE, reducer } from "./state/reducer";
 import { INITIAL_DATA } from "./state/demo-data";
 import { loadAllData, dbSync } from "./lib/db-sync";
@@ -22,6 +22,7 @@ import Settings from "./features/Settings";
 import { AuthContext } from "./context/AuthContext";
 import { ThemeContext } from "./context/ThemeContext";
 import { DataContext } from "./context/DataContext";
+import { createSyncQueue } from "./lib/sync-queue";
 
 export default function WeddingPlanner() {
   const [state, setReducerDispatch] = useReducer(reducer, EMPTY_STATE);
@@ -69,12 +70,15 @@ export default function WeddingPlanner() {
   }, [user]);
 
   const showToast = (message, type = "info") => setToast({ visible: true, message, type });
+  const syncQueue = useRef(createSyncQueue({ onError: (err) => showToast(`Sync eșuat: ${err.message}`, "error") }));
 
-  const dispatch = useCallback(async (action) => {
+  const dispatch = useCallback((action) => {
     setReducerDispatch(action);
     const payload = action.p;
     const currentWeddingId = weddingId;
-    try {
+    const key = `${action.type}:${action.p?.id || action.p || "global"}`;
+
+    syncQueue.current.push(key, async () => {
       switch (action.type) {
         case "SET":
           if (currentWeddingId) await dbSync.updateWedding(currentWeddingId, payload.wedding || payload);
@@ -98,10 +102,17 @@ export default function WeddingPlanner() {
         case "UNSEAT": await dbSync.updateGuest(payload, { tid: null }); break;
         case "MOVE_SEAT": await dbSync.updateGuest(payload.gid, { tid: payload.tid }); break;
       }
-    } catch (error) {
-      showToast(`Sync eșuat: ${error.message}`, "error");
-    }
+    });
   }, [weddingId]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      void syncQueue.current.flush();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   useEffect(() => { loadTheme().then(themeValue => { if (themeValue) setTheme(themeValue); }); }, []);
   useEffect(() => { saveTheme(theme); }, [theme]);

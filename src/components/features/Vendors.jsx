@@ -89,7 +89,7 @@ function Vendors() {
               {v.notes && <div style={{ fontSize: 11, color: "var(--gr)", fontStyle: "italic", padding: "6px 10px", background: "var(--cr)", borderRadius: 8, marginTop: 2 }}>📝 {v.notes}</div>}
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-              <Btn v="secondary" onClick={() => { setEditing(v); setShowForm(true) }} full style={{ fontSize: 11 }}>{ic.edit} Editează</Btn>
+              <Btn variant="secondary" onClick={() => { setEditing(v); setShowForm(true) }} fullWidth style={{ fontSize: 11 }}>{ic.edit} Editează</Btn>
             </div>
           </div>}
         </Card>
@@ -123,8 +123,8 @@ function VendorFormInner({ vendor, onClose }) {
     </div>
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Detalii contract, prețuri, observații..." />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { if (vendor) dispatch({ type: "SET", p: { vendors: state.vendors.map(v => v.id === vendor.id ? { ...v, ...formData } : v) } }); else dispatch({ type: "SET", p: { vendors: [...state.vendors, { ...formData, id: mkid() }] } }); onClose() }} disabled={!formData.name}>Salvează</Btn>
-      {vendor && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
+      <Btn fullWidth onClick={() => { if (vendor) dispatch({ type: "SET", p: { vendors: state.vendors.map(v => v.id === vendor.id ? { ...v, ...formData } : v) } }); else dispatch({ type: "SET", p: { vendors: [...state.vendors, { ...formData, id: mkid() }] } }); onClose() }} disabled={!formData.name}>Salvează</Btn>
+      {vendor && <Btn variant="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
     {vendor && <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "SET", p: { vendors: state.vendors.filter(v => v.id !== vendor.id) } }); onClose() }} title="Șterge furnizorul?" message={`"${vendor?.name}" va fi eliminat.`} />}
   </>;

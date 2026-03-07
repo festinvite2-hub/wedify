@@ -176,7 +176,7 @@ function Tables() {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>{state.tables.length} mese</span>
-        <Btn v="secondary" onClick={() => setShowAdd(true)} style={{ fontSize: 11, padding: "5px 12px" }}>{ic.plus} Masă nouă</Btn>
+        <Btn variant="secondary" onClick={() => setShowAdd(true)} style={{ fontSize: 11, padding: "5px 12px" }}>{ic.plus} Masă nouă</Btn>
       </div>
 
       {(viewMode === "list" ? displayedTables : []).map(table => {
@@ -215,11 +215,11 @@ function Tables() {
               </div> : <div style={{ padding: "10px 0", fontSize: 12, color: "var(--mt)", fontStyle: "italic" }}>Niciun invitat</div>}
 
               <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                {!isFull && <Btn v="secondary" onClick={() => { setPickingFor(isPicking ? null : table.id); setSearchG("") }} style={{ fontSize: 11, padding: "7px 12px", flex: 1, border: isPicking ? "2px solid var(--g)" : "1px solid var(--bd)", background: isPicking ? "rgba(184,149,106,.06)" : "var(--cr)" }}>
+                {!isFull && <Btn variant="secondary" onClick={() => { setPickingFor(isPicking ? null : table.id); setSearchG("") }} style={{ fontSize: 11, padding: "7px 12px", flex: 1, border: isPicking ? "2px solid var(--g)" : "1px solid var(--bd)", background: isPicking ? "rgba(184,149,106,.06)" : "var(--cr)" }}>
                   {isPicking ? "Anulează" : "+ Adaugă invitați"}
                 </Btn>}
-                <Btn v="ghost" onClick={() => setEditingTable(table)} style={{ fontSize: 11, padding: "7px 10px" }}>{ic.edit}</Btn>
-                <Btn v="danger" onClick={() => setConfirmDel(table.id)} style={{ fontSize: 11, padding: "7px 10px" }}>{ic.trash}</Btn>
+                <Btn variant="ghost" onClick={() => setEditingTable(table)} style={{ fontSize: 11, padding: "7px 10px" }}>{ic.edit}</Btn>
+                <Btn variant="danger" onClick={() => setConfirmDel(table.id)} style={{ fontSize: 11, padding: "7px 10px" }}>{ic.trash}</Btn>
               </div>
 
               {isPicking && <div style={{ marginTop: 10, padding: 10, borderRadius: "var(--rs)", background: "rgba(184,149,106,.04)", border: "1px solid var(--gl)" }}>
@@ -281,7 +281,7 @@ function AddTableForm({ onClose }) {
       </div>
     </div>
     <Fld label="Număr locuri" value={seats} onChange={v => setSeats(v)} type="number" />
-    <Btn full onClick={handleAdd} disabled={!name.trim()}>Adaugă masa</Btn>
+    <Btn fullWidth onClick={handleAdd} disabled={!name.trim()}>Adaugă masa</Btn>
   </>;
 }
 
@@ -307,7 +307,7 @@ function EditTableForm({ table, onClose }) {
     </div>
     <Fld label="Număr locuri" value={seats} onChange={v => setSeats(v)} type="number" />
     <Fld label="Note" value={notes} onChange={setNotes} type="textarea" placeholder="Lângă ringul de dans, masă rotundă mare..." />
-    <Btn full onClick={() => { dispatch({ type: "UPD_TABLE", p: { id: table.id, name, shape, seats: Number(seats) || 8, notes } }); onClose() }} disabled={!name}>Salvează</Btn>
+    <Btn fullWidth onClick={() => { dispatch({ type: "UPD_TABLE", p: { id: table.id, name, shape, seats: Number(seats) || 8, notes } }); onClose() }} disabled={!name}>Salvează</Btn>
   </>;
 }
 

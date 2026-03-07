@@ -243,7 +243,7 @@ function GuestFormInner({ guest, onClose, guestGroups }) {
     <Fld label="RSVP" value={formData.rsvp} onChange={updater("rsvp")} options={[{ value: "pending", label: "Așteptare" }, { value: "confirmed", label: "Confirmat" }, { value: "declined", label: "Refuzat" }]} />
     <Fld label="Restricții alimentare" value={formData.dietary} onChange={updater("dietary")} placeholder="vegetarian, vegan..." />
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Vine cu copil, necesită cazare..." />
-    <Btn full onClick={() => { dispatch({ type: guest ? "UPD_GUEST" : "ADD_GUEST", p: { ...formData, id: guest?.id || mkid(), tid: formData.tid || null } }); onClose(); }} disabled={!formData.name}>{guest ? "Salvează" : "Adaugă"}</Btn>
+    <Btn fullWidth onClick={() => { dispatch({ type: guest ? "UPD_GUEST" : "ADD_GUEST", p: { ...formData, id: guest?.id || mkid(), tid: formData.tid || null } }); onClose(); }} disabled={!formData.name}>{guest ? "Salvează" : "Adaugă"}</Btn>
   </>;
 }
 

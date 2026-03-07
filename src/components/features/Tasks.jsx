@@ -121,8 +121,8 @@ function TaskFormInner({ task, onClose }) {
     <Fld label="Categorie" value={formData.cat} onChange={updater("cat")} placeholder="Catering, Rochie, General..." />
     <Fld label="Prioritate" value={formData.prio} onChange={updater("prio")} options={[{ value: "low", label: "Scăzută" }, { value: "medium", label: "Medie" }, { value: "high", label: "Urgentă" }]} />
     <div style={{ display: "flex", gap: 8 }}>
-      <Btn full onClick={() => { dispatch({ type: task ? "UPD_TASK" : "ADD_TASK", p: { ...formData, id: task?.id || mkid() } }); onClose() }} disabled={!formData.title}>Salvează</Btn>
-      {task && <Btn v="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
+      <Btn fullWidth onClick={() => { dispatch({ type: task ? "UPD_TASK" : "ADD_TASK", p: { ...formData, id: task?.id || mkid() } }); onClose() }} disabled={!formData.title}>Salvează</Btn>
+      {task && <Btn variant="danger" onClick={() => setShowConfirm(true)}>{ic.trash}</Btn>}
     </div>
     <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => { dispatch({ type: "DEL_TASK", p: task.id }); onClose() }} title="Șterge task-ul?" message={`"${task?.title}" va fi eliminat.`} />
   </>;

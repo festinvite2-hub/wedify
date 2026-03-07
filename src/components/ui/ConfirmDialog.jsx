@@ -9,8 +9,8 @@ function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
         <h4 style={{ fontFamily: "var(--fd)", fontSize: 18, fontWeight: 500, marginBottom: 8 }}>{title || "Confirmare"}</h4>
         <p style={{ fontSize: 13, color: "var(--gr)", marginBottom: 20, lineHeight: 1.5 }}>{message || "Ești sigur? Acțiunea nu poate fi anulată."}</p>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn v="secondary" onClick={onClose} full>Anulează</Btn>
-          <Btn v="danger" onClick={() => { onConfirm(); onClose(); }} full>Șterge</Btn>
+          <Btn variant="secondary" onClick={onClose} fullWidth>Anulează</Btn>
+          <Btn variant="danger" onClick={() => { onConfirm(); onClose(); }} fullWidth>Șterge</Btn>
         </div>
       </div>
     </div>
