@@ -12,8 +12,6 @@ import { Badge } from "../ui/Badge";
 
 function Stars({v,onChange}){return <div style={{display:"flex",gap:2}}>{[1,2,3,4,5].map(i=><button key={i} onClick={()=>onChange?.(i)} style={{padding:1,color:i<=v?"var(--g)":"var(--ft)"}}>{i<=v?ic.star:ic.starO}</button>)}</div>}
 
-// ─── AUTH ────────────────────────────────────────────────────
-// ─── Auth Screen (Supabase production) ───────────────────────
 
 function Vendors() {
   const { state, dispatch } = useData(); const [showForm, setShowForm] = useState(false); const [editing, setEditing] = useState(null); const [expandedId, setExpandedId] = useState(null);
