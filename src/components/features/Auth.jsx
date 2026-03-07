@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getSupabase } from "../lib/supabase-client";
 import { Btn } from "../ui/Btn";
 
-function Auth({onLogin}){
+function Auth(){
   const[mode,setMode]=useState("login"); // login | register | forgot | confirm | reset_code | reset_done
   const[email,setEmail]=useState("");
   const[name,setName]=useState("");
@@ -234,6 +234,5 @@ function Auth({onLogin}){
   );
 }
 
-// ─── Access Manager ──────────────────────────────────────────
 
 export default Auth;
