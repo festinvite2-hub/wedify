@@ -58,6 +58,7 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from("budget_items").delete().eq("wedding_id", weddingId);
       await supabaseAdmin.from("tasks").delete().eq("wedding_id", weddingId);
       await supabaseAdmin.from("vendors").delete().eq("wedding_id", weddingId);
+      await supabaseAdmin.from("guest_groups").delete().eq("wedding_id", weddingId);
       await supabaseAdmin.from("weddings").delete().eq("id", weddingId);
     }
 
