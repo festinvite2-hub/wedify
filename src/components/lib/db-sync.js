@@ -17,12 +17,13 @@ async function loadAllData(userId) {
   if (!supabase) return null;
   const { data: wedding } = await supabase.from('weddings').select('*').eq('user_id', userId).single();
   if (!wedding) return null;
-  const [guests, tables, budgetItems, tasks, vendors] = await Promise.all([
+  const [guests, tables, budgetItems, tasks, vendors, guestGroups] = await Promise.all([
     supabase.from('guests').select('*').eq('wedding_id', wedding.id).order('created_at'),
     supabase.from('tables').select('*').eq('wedding_id', wedding.id).order('sort_order'),
     supabase.from('budget_items').select('*').eq('wedding_id', wedding.id).order('created_at'),
     supabase.from('tasks').select('*').eq('wedding_id', wedding.id).order('due'),
     supabase.from('vendors').select('*').eq('wedding_id', wedding.id).order('created_at'),
+    supabase.from('guest_groups').select('*').eq('wedding_id', wedding.id).order('sort_order'),
   ]);
 
   return {
@@ -37,9 +38,10 @@ async function loadAllData(userId) {
     },
     weddingId: wedding.id,
     groups: wedding.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"],
+    guestGroups: (guestGroups.data || []).map(item => ({ ...item })),
     tags: wedding.tags || ["Copil", "Cazare", "Parcare", "Din alt oraș", "Martor", "Naș/Nașă"],
     onboarded: wedding.onboarded || false,
-    guests: (guests.data || []).map(item => ({ ...item, tid: item.table_id, group: item.group, count: item.count || 1 })),
+    guests: (guests.data || []).map(item => ({ ...item, tid: item.table_id, group: item.group, groupId: item.group_id || null, count: item.count || 1 })),
     tables: (tables.data || []).map(item => ({ ...item })),
     budget: (budgetItems.data || []).map(item => {
       const parsed = parseBudgetNotes(item.notes || "");
@@ -72,6 +74,12 @@ const dbSync = {
       console.error('createWedding error:', error);
       return null;
     }
+    const defaultGroups = data.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
+    await withRetry(() => sb.from('guest_groups').insert(defaultGroups.map((name, index) => ({
+      wedding_id: wedding.id,
+      name,
+      sort_order: index,
+    }))));
     return wedding;
   },
 
@@ -97,6 +105,7 @@ const dbSync = {
       wedding_id: weddingId,
       name: guest.name,
       group: guest.group || 'Prieteni',
+      group_id: guest.groupId || null,
       rsvp: guest.rsvp || 'pending',
       dietary: guest.dietary || '',
       tags: guest.tags || [],
@@ -112,6 +121,7 @@ const dbSync = {
     const mapped = {};
     if (data.name !== undefined) mapped.name = data.name;
     if (data.group !== undefined) mapped.group = data.group;
+    if (data.groupId !== undefined) mapped.group_id = data.groupId;
     if (data.rsvp !== undefined) mapped.rsvp = data.rsvp;
     if (data.dietary !== undefined) mapped.dietary = data.dietary;
     if (data.tags !== undefined) mapped.tags = data.tags;
@@ -214,6 +224,38 @@ const dbSync = {
     if (supabase) await withRetry(() => supabase.from('tasks').delete().eq('id', id));
   },
 
+
+
+  async addGuestGroup(weddingId, group) {
+    const supabase = getSupabase(); if (!supabase || !weddingId) return null;
+    const { data } = await withRetry(() => supabase.from('guest_groups').insert({
+      wedding_id: weddingId,
+      name: group.name,
+      sort_order: group.sortOrder || 0,
+    }).select().single());
+    return data;
+  },
+
+  async updateGuestGroup(id, data) {
+    const supabase = getSupabase(); if (!supabase) return;
+    const mapped = {};
+    if (data.name !== undefined) mapped.name = data.name;
+    if (data.sortOrder !== undefined) mapped.sort_order = data.sortOrder;
+    if (Object.keys(mapped).length > 0) await withRetry(() => supabase.from('guest_groups').update(mapped).eq('id', id));
+  },
+
+  async reassignGuestsGroup(weddingId, fromGroupId, toGroupId, fallbackName = 'Altele') {
+    const supabase = getSupabase(); if (!supabase || !weddingId || !fromGroupId) return;
+    const updatePayload = { group_id: toGroupId || null };
+    if (!toGroupId) updatePayload.group = fallbackName;
+    await withRetry(() => supabase.from('guests').update(updatePayload).eq('wedding_id', weddingId).eq('group_id', fromGroupId));
+  },
+
+  async deleteGuestGroup(id) {
+    const supabase = getSupabase();
+    if (supabase) await withRetry(() => supabase.from('guest_groups').delete().eq('id', id));
+  },
+
   async addVendor(weddingId, vendor) {
     const supabase = getSupabase(); if (!supabase || !weddingId) return null;
     const { data } = await withRetry(() => supabase.from('vendors').insert({
@@ -245,11 +287,13 @@ const dbSync = {
       wedding_id: weddingId,
       name: guest.name,
       group: guest.group || 'Prieteni',
+      group_id: guest.groupId || null,
       rsvp: guest.rsvp || 'pending',
       dietary: guest.dietary || '',
       tags: guest.tags || [],
       notes: guest.notes || '',
       table_id: guest.tid || null,
+      count: guest.count || 1,
     }));
     const { data } = await withRetry(() => supabase.from('guests').insert(rows).select());
     return data || [];

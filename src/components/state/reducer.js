@@ -3,6 +3,7 @@ import { mkid } from "../lib/utils";
 const EMPTY_STATE = {
   wedding: { couple: '', date: '', venue: '', budget: 0, guestTarget: 1, program: [], theme: '' },
   groups: ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"],
+  guestGroups: [],
   tags: ["Copil", "Cazare", "Parcare", "Din alt oraș", "Martor", "Naș/Nașă"],
   onboarded: false,
   activity: [],

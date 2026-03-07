@@ -29,16 +29,6 @@ function Settings({ open, onClose }) {
     }
   }, [open, state.wedding]);
 
-  const exportJson = () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "wedify-export.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== "STERGE") return;
     setDeleting(true);
@@ -100,7 +90,6 @@ function Settings({ open, onClose }) {
 
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         <Btn fullWidth onClick={() => { dispatch({ type: "SET", p: { wedding: formData } }); onClose(); }}>Salvează</Btn>
-        <Btn variant="outline" onClick={exportJson}>Export JSON</Btn>
       </div>
 
       <div style={{
