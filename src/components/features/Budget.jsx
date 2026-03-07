@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useData } from "../context/DataContext";
 import { mkid, fmtD, fmtC, parseBudgetNotes, serializeBudgetNotes } from "../lib/utils";
-import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
 import { Btn } from "../ui/Btn";
 import { Card } from "../ui/Card";
@@ -34,7 +33,6 @@ function Budget() {
   const tS = state.budget.reduce((a, b) => a + b.spent, 0);
   const pct = tP > 0 ? Math.round((tS / tP) * 100) : 0;
   const cl = ["#B8956A", "#8BA888", "#D4A0A0", "#5A82B4", "#C9A032", "#B85C5C", "#9A9A9A", "#A088B8"];
-  const vendorByName = useMemo(() => new Map((state.vendors || []).map(v => [(v.name || "").trim().toLowerCase(), v])), [state.vendors]);
 
   // SVG donut
   let angle = 0;
@@ -76,11 +74,10 @@ function Budget() {
         <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>Categorii</span>
         <Btn v="secondary" onClick={() => { setEditing(null); setShowForm(true) }} style={{ fontSize: 10, padding: "4px 10px" }}>{ic.plus} Adaugă</Btn>
       </div>
-      {state.budget.map((b, i) => { const payload = Math.round((b.spent / Math.max(b.planned, 1)) * 100); const linkedVendor = vendorByName.get((b.vendor || "").trim().toLowerCase()); return (
+      {state.budget.map((b, i) => { const payload = Math.round((b.spent / Math.max(b.planned, 1)) * 100); return (
         <Card key={b.id} onClick={() => { setEditing(b); setShowForm(true) }} style={{ marginBottom: 7, cursor: "pointer", padding: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: cl[i % cl.length] }} /><span style={{ flex: 1, fontWeight: 600, fontSize: 13 }}>{b.cat}</span><Badge c={b.status === "paid" ? "green" : b.status === "partial" ? "blue" : "gray"}>{b.status === "paid" ? "Plătit" : b.status === "partial" ? "Parțial" : "Neplătit"}</Badge></div>
           {b.vendor && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3 }}>📍 {b.vendor}</div>}
-          {linkedVendor && <div style={{ display: "flex", gap: 5, marginBottom: 4, flexWrap: "wrap" }}><Badge c={linkedVendor.status === "contracted" ? "green" : linkedVendor.status === "negotiating" ? "blue" : "gray"}>{linkedVendor.status === "contracted" ? "Contractat" : linkedVendor.status === "negotiating" ? "Negociere" : linkedVendor.status === "potential" ? "Potențial" : linkedVendor.status}</Badge><Badge c="gold">⭐ {linkedVendor.rating || 0}/5</Badge></div>}
           {b.notes && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3, fontStyle: "italic" }}>📝 {b.notes}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}><span>{fmtC(b.spent)}</span><span style={{ color: "var(--mt)" }}>{fmtC(b.planned)}</span></div>
           <div style={{ height: 4, background: "var(--cr2)", borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", borderRadius: 2, width: `${Math.min(payload, 100)}%`, background: payload > 100 ? "var(--er)" : "var(--g)", transition: "width .5s" }} /></div>
@@ -96,26 +93,13 @@ function Budget() {
 }
 
 function BudgetFormInner({ item, onClose }) {
-  const { state, dispatch } = useData();
+  const { dispatch } = useData();
   const [formData, setFormData] = useState(item ? { ...item, payments: item.payments || [] } : { cat: "", planned: 0, spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] });
   const [showConfirm, setShowConfirm] = useState(false);
   const [pAmt, setPAmt] = useState(0);
   const [pDate, setPDate] = useState(new Date().toISOString().slice(0, 10));
   const [pNote, setPNote] = useState("");
   const updater = k => v => setFormData(x => ({ ...x, [k]: v }));
-
-  const norm = (v) => (v || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
-  const sameCat = (vCat, bCat) => norm(vCat).includes(norm(bCat)) || norm(bCat).includes(norm(vCat));
-
-  const vendors = state.vendors || [];
-  const linkedByCat = vendors.filter(v => formData.cat && sameCat(v.cat, formData.cat));
-  const contractedByCat = linkedByCat.find(v => v.status === "contracted");
-  const vendorOptions = [{ value: "", label: "— Selectează furnizor —" }, ...vendors.map(v => ({ value: v.name, label: `${v.name}${v.cat ? ` · ${v.cat}` : ""}${v.status ? ` (${v.status})` : ""}` }))];
-
-  useEffect(() => {
-    if (!formData.cat || formData.vendor) return;
-    if (contractedByCat?.name) setFormData(x => ({ ...x, vendor: contractedByCat.name }));
-  }, [formData.cat, formData.vendor, contractedByCat?.name]);
 
   const payments = formData.payments || [];
   const spentFromPayments = payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
@@ -159,16 +143,7 @@ function BudgetFormInner({ item, onClose }) {
       </div>
     </div>
 
-    {contractedByCat && <div style={{ marginBottom: 8, fontSize: 10, color: "var(--ok)", fontWeight: 600 }}>🔗 Sugestie automată pentru categorie: {contractedByCat.name} (contractat)</div>}
-    <Fld label="Furnizor (din listă)" value={formData.vendor} onChange={updater("vendor")} options={vendorOptions} />
-    <Fld label="Sau introdu manual" value={formData.vendor} onChange={updater("vendor")} placeholder="Nume furnizor..." />
-
-    {linkedByCat.length > 0 && <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 5 }}>Furnizori pe această categorie</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-        {linkedByCat.map(v => <button key={v.id} onClick={() => updater("vendor")(v.name)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 10, background: formData.vendor === v.name ? "var(--gd)" : "var(--cr)", color: formData.vendor === v.name ? "#fff" : "var(--gr)", border: `1px solid ${formData.vendor === v.name ? "var(--gd)" : "var(--bd)"}` }}>{v.name} {v.status === "contracted" ? "✓" : ""}</button>)}
-      </div>
-    </div>}
+    <Fld label="Furnizor" value={formData.vendor} onChange={updater("vendor")} placeholder="Nume furnizor..." />
 
     <Fld label="Status" value={formData.status} onChange={updater("status")} options={[{ value: "unpaid", label: "Neplătit" }, { value: "partial", label: "Parțial" }, { value: "paid", label: "Plătit" }]} />
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Plata în 2 rate, factură trimisă..." />

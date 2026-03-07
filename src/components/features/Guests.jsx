@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "../context/DataContext";
-import { mkid, gCount, sumGuests, gTypeIcon, gTypeLabel, generateGuestsPDF, openPDF } from "../lib/utils";
+import { mkid, gCount, sumGuests, gTypeIcon, gTypeLabel } from "../lib/utils";
 import { dbSync } from "../lib/db-sync";
 import { ic } from "../lib/icons";
 import { Btn } from "../ui/Btn";
@@ -9,6 +9,8 @@ import { Modal } from "../ui/Modal";
 import { Fld } from "../ui/Fld";
 import { Badge } from "../ui/Badge";
 import { SearchBar } from "../ui/SearchBar";
+
+const DEFAULT_GROUPS = ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
 
 function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
   if (!open) return null;
@@ -28,39 +30,79 @@ function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
 }
 
 function Guests() {
-  const { state, dispatch } = useData();
+  const { state, dispatch, setTab, weddingId, showToast } = useData();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [tagFilter, setTagFilter] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [qn, setQn] = useState("");
-  const [qg, setQg] = useState(state.groups?.[0] || "Prieteni");
+  const [qg, setQg] = useState("");
   const [qType, setQType] = useState("single");
-  const [qFamilySize, setQFamilySize] = useState(3);
+  const [personsCount, setPersonsCount] = useState(1);
   const [confirmDel, setConfirmDel] = useState(null);
-  const [showImport, setShowImport] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showManageGroups, setShowManageGroups] = useState(false);
   const ref = useRef(null);
-  const groups = state.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
+
+  const groups = state.groups || DEFAULT_GROUPS;
+  const guestGroups = useMemo(() => {
+    if (Array.isArray(state.guestGroups) && state.guestGroups.length > 0) return state.guestGroups;
+    return groups.map((name, i) => ({ id: `legacy-${name}`, name, sort_order: i }));
+  }, [state.guestGroups, groups]);
+
+  const groupNameById = useMemo(() => new Map(guestGroups.map(group => [group.id, group.name])), [guestGroups]);
+  const getGuestGroupName = (guest) => {
+    if (guest.groupId && groupNameById.has(guest.groupId)) return groupNameById.get(guest.groupId);
+    if (guest.group) return guest.group;
+    return "Altele";
+  };
+
+  useEffect(() => {
+    if (!qg && guestGroups[0]?.id) setQg(guestGroups[0].id);
+    if (qg && !guestGroups.some(group => group.id === qg)) setQg(guestGroups[0]?.id || "");
+  }, [guestGroups, qg]);
 
   const list = useMemo(() => {
     let l = state.guests;
     if (filter !== "all") l = l.filter(g => g.rsvp === filter);
-    if (tagFilter) l = l.filter(g => (g.tags || []).includes(tagFilter));
     if (search) l = l.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
     return l;
-  }, [state.guests, filter, search, tagFilter]);
+  }, [state.guests, filter, search]);
 
-  const grouped = useMemo(() => { const g = {}; list.forEach(x => { const k = x.group || "Altele"; if (!g[k]) g[k] = []; g[k].push(x) }); return g }, [list]);
+  const grouped = useMemo(() => {
+    const groupedGuests = {};
+    list.forEach(guest => {
+      const key = getGuestGroupName(guest);
+      if (!groupedGuests[key]) groupedGuests[key] = [];
+      groupedGuests[key].push(guest);
+    });
+    return groupedGuests;
+  }, [list, groupNameById]);
+
   const st = { total: state.guests.length, conf: state.guests.filter(g => g.rsvp === "confirmed").length, pend: state.guests.filter(g => g.rsvp === "pending").length, totalPpl: sumGuests(state.guests), confPpl: sumGuests(state.guests.filter(g => g.rsvp === "confirmed")), pendPpl: sumGuests(state.guests.filter(g => g.rsvp === "pending")) };
-  const groupStats = useMemo(() => { const gs = {}; state.guests.forEach(g => { const k = g.group || "Altele"; gs[k] = (gs[k] || 0) + 1 }); return Object.entries(gs).map(([name, count]) => ({ name, count, pct: Math.round((count / Math.max(state.guests.length, 1)) * 100) })); }, [state.guests]);
-  const allTags = useMemo(() => { const t = new Set(state.tags || []); state.guests.forEach(g => (g.tags || []).forEach(tag => t.add(tag))); return [...t]; }, [state.guests, state.tags]);
-  const gCl = ["#B8956A","#8BA888","#D4A0A0","#5A82B4","#C9A032","#9A9A9A","#A088B8","#B85C5C"];
+  const groupStats = useMemo(() => {
+    const gs = {};
+    state.guests.forEach(guest => { const k = getGuestGroupName(guest); gs[k] = (gs[k] || 0) + 1; });
+    return Object.entries(gs).map(([name, count]) => ({ name, count, pct: Math.round((count / Math.max(state.guests.length, 1)) * 100) }));
+  }, [state.guests, groupNameById]);
+  const gCl = ["#B8956A", "#8BA888", "#D4A0A0", "#5A82B4", "#C9A032", "#9A9A9A", "#A088B8", "#B85C5C"];
 
-  const quickCount = qType === "couple" ? 2 : qType === "family" ? Math.max(3, Number(qFamilySize) || 3) : 1;
-  const quickAdd = () => { const n = qn.trim(); if (!n) return; dispatch({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: qg, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: quickCount } }); setQn(""); ref.current?.focus() };
-  const cycleRsvp = g => { const nx = { pending: "confirmed", confirmed: "declined", declined: "pending" }; dispatch({ type: "UPD_GUEST", p: { id: g.id, rsvp: nx[g.rsvp] } }) };
+  const quickCount = personsCount;
+  const setQuickType = (type) => {
+    setQType(type);
+    if (type === "single") setPersonsCount(1);
+    else if (type === "family") setPersonsCount(2);
+    else setPersonsCount(current => Math.min(20, Math.max(3, current < 3 ? 4 : current)));
+  };
+  const selectedQuickGroup = guestGroups.find(group => group.id === qg) || guestGroups[0];
+  const quickAdd = () => {
+    const n = qn.trim();
+    if (!n || !selectedQuickGroup) return;
+    dispatch({ type: "ADD_GUEST", p: { id: mkid(), name: n, group: selectedQuickGroup.name, groupId: selectedQuickGroup.id, rsvp: "pending", dietary: "", tid: null, notes: "", tags: [], count: quickCount } });
+    setQn("");
+    ref.current?.focus();
+  };
+  const cycleRsvp = g => { const nx = { pending: "confirmed", confirmed: "declined", declined: "pending" }; dispatch({ type: "UPD_GUEST", p: { id: g.id, rsvp: nx[g.rsvp] } }); };
 
   return (
     <div className="fu" style={{ padding: "0 14px 20px" }}>
@@ -85,177 +127,215 @@ function Guests() {
         ))}
       </Card>}
 
-      {allTags.length > 0 && <div style={{ display: "flex", gap: 4, marginBottom: 10, overflowX: "auto", paddingBottom: 2 }}>
-        <span style={{ fontSize: 10, color: "var(--mt)", alignSelf: "center", marginRight: 2, flexShrink: 0 }}>{ic.tag}</span>
-        {allTags.map(t => { const cnt = state.guests.filter(g => (g.tags || []).includes(t)).length; return (
-          <button key={t} onClick={() => setTagFilter(tagFilter === t ? null : t)} style={{ padding: "3px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0, background: tagFilter === t ? "var(--gd)" : "var(--cr)", color: tagFilter === t ? "#fff" : "var(--gr)", border: `1px solid ${tagFilter === t ? "var(--gd)" : "var(--bd)"}` }}>{t} <span style={{ opacity: .6 }}>{cnt}</span></button>
-        ); })}
-      </div>}
-
-      {/* Quick add with configurable groups */}
-      <Card style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(184,149,106,.03)", border: "1.5px dashed var(--gl)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--gd)" }}>⚡ Adaugă rapid</div>
-          <button onClick={() => setShowImport(true)} style={{ fontSize: 10, fontWeight: 600, color: "var(--g)", padding: "3px 8px", borderRadius: 8, background: "rgba(184,149,106,.08)" }}>📥 Import CSV</button>
-        </div>
-        <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
-          <input ref={ref} value={qn} onChange={e => setQn(e.target.value)} onKeyDown={e => e.key === "Enter" && quickAdd()} placeholder="Nume invitat/familie..." style={{ flex: 1, padding: "9px 11px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13 }} />
-          <select value={qg} onChange={e => setQg(e.target.value)} style={{ padding: "9px 6px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 11, color: "var(--gr)", maxWidth: 110 }}>
-            {groups.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
-          <button onClick={quickAdd} style={{ width: 38, height: 38, borderRadius: "var(--rs)", background: "var(--g)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ic.plus}</button>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {[{k:"single",l:"👤 Single"},{k:"couple",l:"👫 Cuplu"},{k:"family",l:"👨‍👩‍👧 Familie"}].map(t => (
-            <button key={t.k} onClick={() => setQType(t.k)} style={{ padding: "5px 9px", borderRadius: 12, fontSize: 11, fontWeight: 600, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
-          ))}
-          {qType === "family" && <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: 2 }}>
-            <span style={{ fontSize: 10, color: "var(--mt)", fontWeight: 700 }}>Persoane</span>
-            <button onClick={() => setQFamilySize(v => Math.max(3, v - 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>−</button>
-            <span style={{ minWidth: 14, textAlign: "center", fontSize: 12, fontWeight: 700, color: "var(--gd)" }}>{qFamilySize}</span>
-            <button onClick={() => setQFamilySize(v => Math.min(12, v + 1))} style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid var(--bd)", background: "var(--cd)", fontWeight: 700, color: "var(--gr)" }}>+</button>
-          </div>}
-          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--mt)", fontWeight: 600 }}>Se adaugă: {quickCount} pers.</span>
+      <Card style={{ marginBottom: 12, padding: "10px 12px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontSize: 12, color: "var(--gr)" }}>Exportul listelor este disponibil în secțiunea <b>Unelte</b>.</div>
+          <button onClick={() => setTab("tools")} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 11, fontWeight: 600, color: "var(--gd)", border: "1px solid var(--bd)", background: "var(--cd)", whiteSpace: "nowrap" }}>Vezi Unelte →</button>
         </div>
       </Card>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="Caută..." style={{ marginBottom: 12 }} />
+      <Card style={{ marginBottom: 12, padding: "12px", background: "rgba(184,149,106,.04)", border: "1.5px solid var(--gl)" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--gd)", marginBottom: 10 }}>Adăugare invitat</div>
 
-      {Object.entries(grouped).map(([gn, gl]) => (
-        <div key={gn} style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 5, paddingLeft: 2 }}>{gn} ({gl.length})</div>
-          {gl.map(g => (
-            <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "var(--cd)", borderRadius: "var(--rs)", border: "1px solid var(--bd)", marginBottom: 5 }}>
-              <button onClick={() => cycleRsvp(g)} title="Apasă pentru a schimba statusul" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: g.rsvp === "confirmed" ? "var(--ok)" : g.rsvp === "declined" ? "var(--er)" : "var(--cr2)", color: g.rsvp === "pending" ? "var(--mt)" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, border: g.rsvp === "pending" ? "2px dashed var(--ft)" : "none", transition: "all .2s" }}>
-                  {g.rsvp === "confirmed" ? "✓" : g.rsvp === "declined" ? "✕" : "?"}
-                </div>
-                <span style={{ fontSize: 8, fontWeight: 600, color: g.rsvp === "confirmed" ? "var(--ok)" : g.rsvp === "declined" ? "var(--er)" : "var(--mt)", textTransform: "uppercase", letterSpacing: ".04em", lineHeight: 1 }}>
-                  {g.rsvp === "confirmed" ? "Da" : g.rsvp === "declined" ? "Nu" : "Apasă"}
-                </span>
-              </button>
-              <div style={{ flex: 1, minWidth: 0 }} onClick={() => { setEditing(g); setShowForm(true) }}>
-                <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</div>
-                <div style={{ display: "flex", gap: 3, marginTop: 1, flexWrap: "wrap" }}>{g.dietary && <Badge c="rose">{g.dietary}</Badge>}{g.tid && <Badge c="green">Așezat</Badge>}{g.notes && <span style={{ fontSize: 10, color: "var(--mt)" }} title={g.notes}>📝</span>}{(g.tags||[]).map(t=><Badge key={t} c="blue">{t}</Badge>)}</div>
-              </div>
-              <button onClick={(e) => { e.stopPropagation(); setConfirmDel(g.id) }} style={{ padding: 4, color: "var(--ft)" }}>{ic.trash}</button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <input
+            ref={ref}
+            value={qn}
+            onChange={e => setQn(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && qn.trim() && quickAdd()}
+            placeholder="Nume invitat/familie..."
+            style={{ width: "100%", padding: "11px 12px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 14 }}
+          />
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
+            <select value={qg} onChange={e => setQg(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "var(--rs)", background: "var(--cd)", border: "1px solid var(--bd)", fontSize: 13, color: "var(--gr)", minHeight: 44 }}>
+              {guestGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
+            </select>
+            <button onClick={() => setShowManageGroups(true)} aria-label="Gestionează categorii" title="Gestionează categorii" style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 18, color: "var(--gd)", fontWeight: 700, lineHeight: 1 }}>
+              +
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
+            {[{ k: "single", l: "Single" }, { k: "family", l: "Familie" }, { k: "extendedFamily", l: "Familie extinsă" }].map(t => (
+              <button key={t.k} onClick={() => setQuickType(t.k)} style={{ minHeight: 42, padding: "8px 6px", borderRadius: 12, fontSize: 11, fontWeight: 700, background: qType === t.k ? "var(--gd)" : "var(--cd)", color: qType === t.k ? "#fff" : "var(--gr)", border: `1px solid ${qType === t.k ? "var(--gd)" : "var(--bd)"}` }}>{t.l}</button>
+            ))}
+          </div>
+
+          {qType === "extendedFamily" && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 2 }}>
+              <button onClick={() => setPersonsCount(current => Math.max(3, current - 1))} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 20, fontWeight: 700, color: "var(--gr)", lineHeight: 1 }}>−</button>
+              <div style={{ minWidth: 50, textAlign: "center", fontSize: 18, fontWeight: 700, color: "var(--gd)" }}>{personsCount}</div>
+              <button onClick={() => setPersonsCount(current => Math.min(20, current + 1))} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 20, fontWeight: 700, color: "var(--gr)", lineHeight: 1 }}>+</button>
             </div>
-          ))}
+          )}
+
+          <div style={{ fontSize: 11, color: "var(--mt)", textAlign: "center", marginTop: 2 }}>
+            Se vor adăuga <b style={{ color: "var(--gd)" }}>{quickCount}</b> persoane
+          </div>
+
+          <button
+            onClick={quickAdd}
+            disabled={!qn.trim()}
+            style={{ width: "100%", minHeight: 46, borderRadius: "var(--rs)", background: qn.trim() ? "var(--g)" : "var(--cr2)", color: qn.trim() ? "#fff" : "var(--mt)", border: "1px solid transparent", fontSize: 14, fontWeight: 700, marginTop: 2 }}
+          >
+            Adaugă
+          </button>
         </div>
-      ))}
+      </Card>
+
+      <SearchBar value={search} onChange={setSearch} placeholder="Caută invitat..." />
+
+      <div style={{ marginTop: 10 }}>
+        {Object.keys(grouped).length === 0 && <Card style={{ textAlign: "center", color: "var(--mt)" }}>Niciun invitat.</Card>}
+        {Object.entries(grouped).map(([grp, arr]) => (
+          <div key={grp} style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <Badge c="gold">{grp}</Badge><span style={{ fontSize: 10, color: "var(--mt)" }}>{arr.length} invitați · {sumGuests(arr)} pers.</span>
+            </div>
+            {arr.map(g => (
+              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "var(--cd)", borderRadius: "var(--rs)", border: "1px solid var(--bd)", marginBottom: 5 }}>
+                <button onClick={() => cycleRsvp(g)} title="Apasă pentru a schimba statusul" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: g.rsvp === "confirmed" ? "var(--ok)" : g.rsvp === "declined" ? "var(--er)" : "var(--cr2)", color: g.rsvp === "pending" ? "var(--mt)" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, border: g.rsvp === "pending" ? "2px dashed var(--ft)" : "none", transition: "all .2s" }}>
+                    {g.rsvp === "confirmed" ? "✓" : g.rsvp === "declined" ? "✕" : "?"}
+                  </div>
+                  <span style={{ fontSize: 8, fontWeight: 600, color: g.rsvp === "confirmed" ? "var(--ok)" : g.rsvp === "declined" ? "var(--er)" : "var(--mt)", textTransform: "uppercase", letterSpacing: ".04em", lineHeight: 1 }}>
+                    {g.rsvp === "confirmed" ? "Da" : g.rsvp === "declined" ? "Nu" : "Apasă"}
+                  </span>
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }} onClick={() => { setEditing(g); setShowForm(true); }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{gTypeIcon(g)} {g.name}</div>
+                  <div style={{ display: "flex", gap: 3, marginTop: 1, flexWrap: "wrap" }}><Badge c="gold">{gCount(g)}p · {gTypeLabel(g)}</Badge>{g.dietary && <Badge c="rose">{g.dietary}</Badge>}{g.tid && <Badge c="green">Așezat</Badge>}{g.notes && <span style={{ fontSize: 10, color: "var(--mt)" }} title={g.notes}>📝</span>}</div>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); setConfirmDel(g.id); }} style={{ padding: 4, color: "var(--ft)" }}>{ic.trash}</button>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
 
       <ConfirmDialog open={!!confirmDel} onClose={() => setConfirmDel(null)} onConfirm={() => dispatch({ type: "DEL_GUEST", p: confirmDel })} title="Șterge invitatul?" message="Invitatul va fi eliminat din listă și de la masă. Acțiunea nu poate fi anulată." />
 
-      <ImportCSV open={showImport} onClose={() => setShowImport(false)} />
 
-      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null) }} title={editing ? "Editare" : "Invitat nou"}>
-        {showForm && <GuestFormInner guest={editing} onClose={() => { setShowForm(false); setEditing(null) }} />}
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Editare" : "Invitat nou"}>
+        {showForm && <GuestFormInner guest={editing} onClose={() => { setShowForm(false); setEditing(null); }} guestGroups={guestGroups} />}
       </Modal>
+
+      <ManageGuestGroupsModal
+        open={showManageGroups}
+        onClose={() => setShowManageGroups(false)}
+        guestGroups={guestGroups}
+        guests={state.guests}
+        weddingId={weddingId}
+        dispatch={dispatch}
+        showToast={showToast}
+      />
     </div>
   );
 }
 
-function GuestFormInner({ guest, onClose }) {
-  const { state, dispatch } = useData();
-  const groups = state.groups || ["Familie Mireasă", "Familie Mire", "Prieteni", "Colegi"];
-  const allTags = state.tags || ["Copil","Cazare","Parcare","Din alt oraș","Martor","Naș/Nașă"];
-  const [formData, setFormData] = useState(guest ? { ...guest, tags: guest.tags || [], count: guest.count || 1 } : { name: "", group: groups[0], rsvp: "pending", dietary: "", notes: "", tags: [], count: 1 });
+function GuestFormInner({ guest, onClose, guestGroups }) {
+  const { dispatch } = useData();
+  const [formData, setFormData] = useState(guest
+    ? { ...guest, count: guest.count || 1, groupId: guest.groupId || guestGroups[0]?.id || null, group: guest.group || guestGroups[0]?.name || "Prieteni" }
+    : { name: "", group: guestGroups[0]?.name || "Prieteni", groupId: guestGroups[0]?.id || null, rsvp: "pending", dietary: "", notes: "", count: 1 });
   const updater = k => v => setFormData(x => ({ ...x, [k]: v }));
-  const toggleTag = t => setFormData(x => ({ ...x, tags: x.tags.includes(t) ? x.tags.filter(v => v !== t) : [...x.tags, t] }));
+
+  const changeGroup = (groupId) => {
+    const selected = guestGroups.find(group => group.id === groupId);
+    setFormData(x => ({ ...x, groupId, group: selected?.name || x.group }));
+  };
+
   return <>
     <Fld label="Nume" value={formData.name} onChange={updater("name")} />
-    <div style={{display:"flex",gap:8,marginBottom:12}}>
-      <div style={{flex:1}}>
-        <Fld label="Grup" value={formData.group} onChange={updater("group")} options={groups} />
+    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <div style={{ flex: 1 }}>
+        <Fld label="Grup" value={formData.groupId || ""} onChange={changeGroup} options={guestGroups.map(group => ({ value: group.id, label: group.name }))} />
       </div>
-      <div style={{width:100}}>
-        <Fld label="Persoane" value={formData.count} onChange={v=>updater("count")(Number(v)||1)} options={[{value:1,label:"👤 1"},{value:2,label:"👫 2"},{value:3,label:"👨‍👩‍👧 3"},{value:4,label:"👨‍👩‍👧‍👦 4"},{value:5,label:"5"},{value:6,label:"6"}]} />
+      <div style={{ width: 100 }}>
+        <Fld label="Persoane" value={formData.count} onChange={v => updater("count")(Number(v) || 1)} options={[{ value: 1, label: "👤 1" }, { value: 2, label: "👫 2" }, { value: 3, label: "👨‍👩‍👧 3" }, { value: 4, label: "👨‍👩‍👧‍👦 4" }, { value: 5, label: "5" }, { value: 6, label: "6" }]} />
       </div>
     </div>
     <Fld label="RSVP" value={formData.rsvp} onChange={updater("rsvp")} options={[{ value: "pending", label: "Așteptare" }, { value: "confirmed", label: "Confirmat" }, { value: "declined", label: "Refuzat" }]} />
     <Fld label="Restricții alimentare" value={formData.dietary} onChange={updater("dietary")} placeholder="vegetarian, vegan..." />
-    <div style={{ marginBottom: 12 }}>
-      <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--mt)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 5 }}>Tag-uri</label>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-        {allTags.map(t => (
-          <button key={t} onClick={() => toggleTag(t)} style={{ padding: "4px 10px", borderRadius: 12, fontSize: 11, fontWeight: 600, background: formData.tags.includes(t) ? "var(--gd)" : "var(--cr)", color: formData.tags.includes(t) ? "#fff" : "var(--gr)", border: `1px solid ${formData.tags.includes(t) ? "var(--gd)" : "var(--bd)"}` }}>{t}</button>
-        ))}
-      </div>
-    </div>
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Vine cu copil, necesită cazare..." />
-    <Btn full onClick={() => { dispatch({ type: guest ? "UPD_GUEST" : "ADD_GUEST", p: { ...formData, id: guest?.id || mkid(), tid: formData.tid || null } }); onClose() }} disabled={!formData.name}>{guest ? "Salvează" : "Adaugă"}</Btn>
+    <Btn full onClick={() => { dispatch({ type: guest ? "UPD_GUEST" : "ADD_GUEST", p: { ...formData, id: guest?.id || mkid(), tid: formData.tid || null } }); onClose(); }} disabled={!formData.name}>{guest ? "Salvează" : "Adaugă"}</Btn>
   </>;
 }
 
-// ── Seated Guest Row (extracted for hooks) ──────────────────
+function ManageGuestGroupsModal({ open, onClose, guestGroups, guests, weddingId, dispatch, showToast }) {
+  const [newName, setNewName] = useState("");
+  const [saving, setSaving] = useState(false);
 
-function ImportCSV({ open, onClose }) {
-  const { state, dispatch, showToast } = useData();
-  const [raw, setRaw] = useState("");
-  const [preview, setPreview] = useState([]);
-  const groups = state.groups || ["Prieteni"];
+  const customGroups = guestGroups.filter(group => !DEFAULT_GROUPS.includes(group.name) && group.name !== "Altele");
+  const fallback = guestGroups.find(group => group.name === "Altele") || guestGroups.find(group => !customGroups.some(custom => custom.id === group.id));
 
-  const parse = (text) => {
-    const lines = text.trim().split("\n").filter(l => l.trim());
-    const guests = [];
-    for (const line of lines) {
-      // Support: "Name, Group, Dietary" or just "Name"
-      const parts = line.split(/[,;\t]/).map(p => p.trim().replace(/^["']|["']$/g, ""));
-      if (parts[0] && parts[0].length > 1) {
-        guests.push({
-          id: mkid(),
-          name: parts[0],
-          group: parts[1] && groups.includes(parts[1]) ? parts[1] : groups[0],
-          rsvp: "pending",
-          dietary: parts[2] || "",
-          tid: null,
-          notes: parts[3] || "",
-        });
-      }
+  const addGroup = async () => {
+    const name = newName.trim();
+    if (!name || !weddingId) return;
+    if (guestGroups.some(group => group.name.toLowerCase() === name.toLowerCase())) {
+      showToast?.("Categoria există deja.", "warning");
+      return;
     }
-    return guests;
+    setSaving(true);
+    try {
+      const created = await dbSync.addGuestGroup(weddingId, { name, sortOrder: guestGroups.length + 1 });
+      if (created) dispatch({ type: "SET", p: { guestGroups: [...guestGroups, created] } });
+      setNewName("");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  useEffect(() => { if (raw) setPreview(parse(raw)); else setPreview([]); }, [raw]);
+  const renameGroup = async (groupId, name) => {
+    const next = name.trim();
+    if (!next) return;
+    await dbSync.updateGuestGroup(groupId, { name: next });
+    dispatch({ type: "SET", p: { guestGroups: guestGroups.map(group => group.id === groupId ? { ...group, name: next } : group), guests: guests.map(guest => guest.groupId === groupId ? { ...guest, group: next } : guest) } });
+  };
 
-  const doImport = () => {
-    if (preview.length === 0) return;
-    dispatch({ type: "IMPORT_GUESTS", p: preview });
-    showToast?.(`${preview.length} invitați importați!`, "success");
-    setRaw("");
-    onClose();
+  const deleteGroup = async (groupId) => {
+    if (!weddingId || !fallback || fallback.id === groupId) return;
+    await dbSync.reassignGuestsGroup(weddingId, groupId, fallback.id, fallback.name);
+    await dbSync.deleteGuestGroup(groupId);
+    dispatch({
+      type: "SET",
+      p: {
+        guestGroups: guestGroups.filter(group => group.id !== groupId),
+        guests: guests.map(guest => guest.groupId === groupId ? { ...guest, groupId: fallback.id, group: fallback.name } : guest),
+      },
+    });
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Import invitați">
-      <div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>
-        Lipește lista de invitați, câte un rând per invitat. Format: <b>Nume, Grup, Restricții</b> (doar numele e obligatoriu).
+    <Modal open={open} onClose={onClose} title="Categorii invitați">
+      <div style={{ fontSize: 12, color: "var(--mt)", marginBottom: 10 }}>Adaugă categorii noi și gestionează doar categoriile personalizate.</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nume categorie nouă" style={{ flex: 1, padding: "10px 12px", borderRadius: "var(--rs)", border: "1px solid var(--bd)", background: "var(--cd)", fontSize: 13 }} />
+        <Btn onClick={addGroup} disabled={saving || !newName.trim()}>Adaugă</Btn>
       </div>
-      <textarea value={raw} onChange={e => setRaw(e.target.value)} placeholder={"Maria Popescu, Familie Mireasă, vegetarian\nIon Ionescu, Familie Mire\nElena Dragomir"} rows={6} style={{ width: "100%", padding: "11px 13px", background: "var(--cr)", border: "1.5px solid var(--bd)", borderRadius: "var(--rs)", fontSize: 13, fontFamily: "monospace", resize: "vertical", marginBottom: 10 }} />
-      {preview.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ok)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>
-            ✓ {preview.length} invitați detectați
-          </div>
-          <div style={{ maxHeight: 120, overflow: "auto", borderRadius: "var(--rs)", border: "1px solid var(--bd)" }}>
-            {preview.slice(0, 10).map((g, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderTop: i ? "1px solid var(--bd)" : "none", fontSize: 12 }}>
-                <span style={{ fontWeight: 600, flex: 1 }}>{g.name}</span>
-                <Badge c="gold">{g.group}</Badge>
-                {g.dietary && <Badge c="rose">{g.dietary}</Badge>}
-              </div>
-            ))}
-            {preview.length > 10 && <div style={{ padding: "6px 10px", fontSize: 11, color: "var(--mt)" }}>...și încă {preview.length - 10}</div>}
-          </div>
-        </div>
-      )}
-      <Btn full onClick={doImport} disabled={preview.length === 0}>Importă {preview.length} invitați</Btn>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {guestGroups.map(group => {
+          const isCustom = customGroups.some(custom => custom.id === group.id);
+          return (
+            <div key={group.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "1px solid var(--bd)", borderRadius: "var(--rs)" }}>
+              <input
+                defaultValue={group.name}
+                disabled={!isCustom}
+                onBlur={e => isCustom && e.target.value !== group.name && renameGroup(group.id, e.target.value)}
+                style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--bd)", background: isCustom ? "var(--cd)" : "var(--cr)", fontSize: 12 }}
+              />
+              {!isCustom && <Badge c="gray">Implicit</Badge>}
+              {isCustom && <button onClick={() => deleteGroup(group.id)} style={{ fontSize: 11, color: "var(--er)", padding: "6px 8px" }}>Șterge</button>}
+            </div>
+          );
+        })}
+      </div>
     </Modal>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🎉 ONBOARDING WIZARD
-// ═══════════════════════════════════════════════════════════════
+
 
 export default Guests;
