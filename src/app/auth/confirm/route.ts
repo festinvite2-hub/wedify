@@ -22,12 +22,17 @@ export async function GET(request: Request) {
 
   // Handle legacy token_hash verification
   if (token_hash && type) {
-    const { error } = await supabase.auth.verifyOtp({ type, token_hash });
-    if (!error) {
-      if (type === 'recovery') {
-        return NextResponse.redirect(new URL('/auth/reset-password', request.url));
+    type TokenHashType = Extract<Parameters<typeof supabase.auth.verifyOtp>[0], { token_hash: string }>['type'];
+    const tokenHashTypes: TokenHashType[] = ['email', 'recovery', 'invite', 'email_change', 'magiclink'];
+
+    if (tokenHashTypes.includes(type as TokenHashType)) {
+      const { error } = await supabase.auth.verifyOtp({ type: type as TokenHashType, token_hash });
+      if (!error) {
+        if (type === 'recovery') {
+          return NextResponse.redirect(new URL('/auth/reset-password', request.url));
+        }
+        return NextResponse.redirect(new URL('/auth/confirmed', request.url));
       }
-      return NextResponse.redirect(new URL('/auth/confirmed', request.url));
     }
   }
 
