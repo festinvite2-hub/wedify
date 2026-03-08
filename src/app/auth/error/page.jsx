@@ -1,4 +1,5 @@
-export default function AuthErrorPage() {
+export default function AuthErrorPage({ searchParams }) {
+  const message = searchParams?.message || 'Link-ul de confirmare a expirat sau este invalid. Te rugam sa soliciti un nou email.';
   return (
     <div style={{
       minHeight: '100vh',
@@ -33,7 +34,7 @@ export default function AuthErrorPage() {
           lineHeight: 1.6,
           margin: '0 0 28px',
         }}>
-          Link-ul de confirmare a expirat sau este invalid. Te rugam sa soliciti un nou email.
+          {message}
         </p>
         <a
           href="/"
