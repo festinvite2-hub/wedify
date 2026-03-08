@@ -175,6 +175,59 @@ function generateTablesPDF(tables, guests, wedding) {
   return html;
 }
 
+function generateProgramPDF(wedding, program = [], contacts = []) {
+  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Programul Zilei - ${wedding?.couple || "Nuntă"}</title>
+  <style>
+    body{font-family:'Segoe UI',sans-serif;padding:34px;color:#1a1a1a;max-width:860px;margin:0 auto}
+    h1{font-family:Georgia,serif;font-size:28px;font-weight:400;color:#8A6D47;margin-bottom:4px}
+    .sub{color:#999;font-size:13px;margin-bottom:24px}
+    .timeline{border-left:2px solid #E5DFD5;padding-left:16px;margin-left:8px}
+    .moment{position:relative;padding-bottom:14px;margin-bottom:12px;border-bottom:1px solid #F0EAE0}
+    .moment::before{content:'';position:absolute;left:-23px;top:8px;width:10px;height:10px;border-radius:50%;background:#B8956A}
+    .time{font-size:21px;font-weight:700;color:#222}
+    .title{font-size:15px;font-weight:700;margin-top:3px}
+    .meta{font-size:12px;color:#6B645C;margin-top:4px}
+    .cat{display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(184,149,106,.1);color:#8A6D47;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:5px}
+    .notes{margin-top:6px;padding:8px 10px;background:#FCF9F3;border-radius:8px;font-size:11px;color:#6B645C}
+    .check{margin-top:6px;padding-left:16px}.check li{font-size:12px;margin-bottom:2px}
+    h2{font-size:15px;color:#8A6D47;margin:24px 0 10px;border-bottom:1px solid #E5DFD5;padding-bottom:6px}
+    .contacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .contact{border:1px solid #E5DFD5;border-radius:10px;padding:10px;background:#FAF6F0}
+    .contact-name{font-size:14px;font-weight:700}.contact-cat{font-size:10px;color:#999;margin-bottom:3px}.contact-line{font-size:12px;color:#6B645C}
+    .footer{margin-top:30px;text-align:center;font-size:11px;color:#bbb}
+  </style></head><body>
+  <h1>${wedding?.couple || "Cuplu"} — Programul zilei</h1>
+  <div class="sub">${fmtD(wedding?.date)} · ${wedding?.venue || "Locație"}</div>
+  <div class="timeline">`;
+
+  (program || []).forEach((moment) => {
+    html += `<div class="moment"><div class="time">${moment.time || "—"}${moment.endTime ? ` - ${moment.endTime}` : ""}</div>
+      <div class="title">${moment.title || "Moment"}</div>
+      <div class="cat">${moment.category || "altele"}</div>
+      ${moment.location ? `<div class="meta">📍 ${moment.location}</div>` : ""}
+      ${moment.contact ? `<div class="meta">👤 ${moment.contact}${moment.phone ? ` · ${moment.phone}` : ""}</div>` : ""}
+      ${moment.notes ? `<div class="notes">📝 ${moment.notes}</div>` : ""}
+      ${(moment.checklist || []).length ? `<ul class="check">${moment.checklist.map((item) => `<li>${item.done ? "☑" : "☐"} ${item.text}</li>`).join("")}</ul>` : ""}
+    </div>`;
+  });
+
+  html += `</div><h2>Contacte furnizori</h2>`;
+  if (!contacts.length) {
+    html += `<div class="meta">Nu există contacte disponibile.</div>`;
+  } else {
+    html += `<div class="contacts">`;
+    contacts.forEach((contact) => {
+      html += `<div class="contact"><div class="contact-cat">${contact.category || "Furnizor"}</div><div class="contact-name">${contact.name || "—"}</div>
+      ${contact.phone ? `<div class="contact-line">☎ ${contact.phone}</div>` : ""}
+      ${contact.email ? `<div class="contact-line">✉ ${contact.email}</div>` : ""}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `<div class="footer">Generat de Wedify · ${new Date().toLocaleDateString("ro-RO")}</div></body></html>`;
+  return html;
+}
+
 function openPDF(html) {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -187,4 +240,4 @@ function openPDF(html) {
   setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 
-export { mkid, gCount, sumGuests, gTypeLabel, gTypeIcon, fmtD, fmtC, parseBudgetNotes, serializeBudgetNotes, loadTheme, saveTheme, generateGuestsPDF, generateTablesPDF, openPDF };
+export { mkid, gCount, sumGuests, gTypeLabel, gTypeIcon, fmtD, fmtC, parseBudgetNotes, serializeBudgetNotes, loadTheme, saveTheme, generateGuestsPDF, generateTablesPDF, generateProgramPDF, openPDF };
