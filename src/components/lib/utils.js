@@ -178,8 +178,13 @@ function generateTablesPDF(tables, guests, wedding) {
 function openPDF(html) {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
-  window.open(url, "_blank");
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  const w = window.open(url, "_blank");
+  if (w) {
+    w.onload = () => {
+      w.print();
+    };
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 
 export { mkid, gCount, sumGuests, gTypeLabel, gTypeIcon, fmtD, fmtC, parseBudgetNotes, serializeBudgetNotes, loadTheme, saveTheme, generateGuestsPDF, generateTablesPDF, openPDF };
