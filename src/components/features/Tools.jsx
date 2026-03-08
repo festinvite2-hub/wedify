@@ -17,6 +17,15 @@ const catConfig = {
   altele: { icon: "📌", color: "#B8956A", label: "Altele", badge: "pending" },
 };
 
+
+const catBadgeColor = {
+  "pregătiri": "rose",
+  ceremonie: "gold",
+  foto: "blue",
+  transport: "gray",
+  petrecere: "green",
+  altele: "gold",
+};
 const emptyProgramMoment = () => ({
   id: mkid(),
   time: "",
@@ -30,9 +39,8 @@ const emptyProgramMoment = () => ({
   checklist: [],
 });
 
-const sortTime = (t = "") => {
-  const [h, m] = `${t}`.split(":").map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return 9999;
+const sortTime = (t) => {
+  const [h, m] = (t || "00:00").split(":").map(Number);
   return h < 6 ? (h + 24) * 60 + m : h * 60 + m;
 };
 
@@ -61,43 +69,36 @@ function Tools() {
     return `Au trecut ${Math.abs(diff)} zile`;
   }, [weddingDate]);
 
-  const dayContacts = useMemo(() => {
-    const byName = new Map();
+  const allContacts = useMemo(() => {
+    const vendorContacts = state.vendors
+      .filter((vendor) => vendor.status === "contracted" && (vendor.phone || vendor.email))
+      .map((vendor) => ({
+        id: vendor.id || mkid(),
+        name: vendor.name,
+        cat: vendor.cat || "Altele",
+        phone: vendor.phone || "",
+        email: vendor.email || "",
+        source: "vendor",
+      }));
 
-    state.vendors
-      .filter((vendor) => vendor.status === "contracted")
-      .forEach((vendor) => {
-        const name = (vendor.name || "").trim();
-        if (!name) return;
-        const key = name.toLowerCase();
-        if (byName.has(key)) return;
-        byName.set(key, {
-          id: vendor.id || mkid(),
-          name,
-          category: vendor.cat || "Altele",
-          phone: vendor.phone || "",
-          email: vendor.email || "",
-          source: "vendors",
-        });
-      });
+    const budgetContacts = state.budget
+      .filter((item) => item.vendor && item.vendorPhone)
+      .map((item) => ({
+        id: item.id || mkid(),
+        name: item.vendor,
+        cat: item.cat || "Buget",
+        phone: item.vendorPhone || "",
+        email: "",
+        source: "budget",
+      }));
 
-    state.budget
-      .filter((item) => item.vendor && `${item.vendor}`.trim())
-      .forEach((item) => {
-        const name = `${item.vendor}`.trim();
-        const key = name.toLowerCase();
-        if (byName.has(key)) return;
-        byName.set(key, {
-          id: item.id || mkid(),
-          name,
-          category: item.cat || "Buget",
-          phone: "",
-          email: "",
-          source: "budget",
-        });
-      });
-
-    return [...byName.values()];
+    const seen = new Set();
+    return [...vendorContacts, ...budgetContacts].filter((contact) => {
+      const key = `${contact.name || ""}`.trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }, [state.vendors, state.budget]);
 
   const exportStats = useMemo(() => {
@@ -135,7 +136,7 @@ function Tools() {
     saveProgram(program.filter((moment) => moment.id !== id));
   };
 
-  const toggleChecklist = (momentId, itemId) => {
+  const toggleChecklistItem = (momentId, itemId) => {
     const updated = program.map((moment) => {
       if (moment.id !== momentId) return moment;
       return {
@@ -306,51 +307,36 @@ function Tools() {
                     <Btn variant="secondary" size="sm" onClick={generateDefaultProgram} style={{ minHeight: 44 }}>Generează program implicit</Btn>
                   </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {sortedProgram.map((moment, idx) => {
-                      const conf = catConfig[moment.category] || catConfig.altele;
-                      const isLast = idx === sortedProgram.length - 1;
-                      return (
-                        <Card key={moment.id} style={{ padding: 12 }}>
-                          <div style={{ display: "flex", gap: 10 }}>
-                            <div style={{ width: 10, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                              <span style={{ width: 8, height: 8, borderRadius: 999, marginTop: 8, background: conf.color }} />
-                              {!isLast && <span style={{ width: 2, flex: 1, background: "var(--bd)", marginTop: 4 }} />}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontFamily: "var(--fd)", fontSize: 20, fontWeight: 600, color: "var(--gd)" }}>{moment.time}{moment.endTime ? ` - ${moment.endTime}` : ""}</div>
-                                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", marginTop: 2 }}>{moment.title}</div>
-                                  <div style={{ marginTop: 5 }}><Badge c={conf.badge}>{conf.icon} {conf.label}</Badge></div>
-                                </div>
-                                <div style={{ display: "flex", gap: 4 }}>
-                                  <button onClick={() => openEditMoment(moment)} style={{ border: "none", background: "transparent", padding: 4, color: "var(--mt)", cursor: "pointer" }} aria-label="Editează moment">{ic.edit}</button>
-                                  <button onClick={() => removeMoment(moment.id)} style={{ border: "none", background: "transparent", padding: 4, color: "var(--mt)", cursor: "pointer" }} aria-label="Șterge moment">{ic.trash}</button>
-                                </div>
-                              </div>
-                              {!!moment.location && <div style={{ fontSize: 11, color: "var(--mt)", marginTop: 6 }}>📍 {moment.location}</div>}
-                              {!!moment.contact && (
-                                <div style={{ fontSize: 11, color: "var(--mt)", marginTop: 4 }}>
-                                  📞 {moment.contact}{moment.phone ? <>: <a href={`tel:${moment.phone}`} style={{ color: "var(--gd)", fontWeight: 600 }}>{moment.phone}</a></> : ""}
-                                </div>
-                              )}
-                              {!!moment.notes && <div style={{ marginTop: 6, fontSize: 11, color: "var(--gr)", fontStyle: "italic" }}>📝 {moment.notes}</div>}
-                              {moment.checklist?.length > 0 && (
-                                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
-                                  {moment.checklist.map((item) => (
-                                    <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                                      <input type="checkbox" checked={!!item.done} onChange={() => toggleChecklist(moment.id, item.id)} />
-                                      <span style={{ textDecoration: item.done ? "line-through" : "none", color: item.done ? "var(--mt)" : "var(--ink)" }}>{item.text}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                  <div>
+                    {sortedProgram.map((item) => (
+                      <Card key={item.id} style={{ marginBottom: 6, padding: "10px 12px", borderLeft: `3px solid ${catConfig[item.category]?.color || "var(--bd)"}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontFamily: "var(--fd)", fontSize: 15, fontWeight: 600, color: "var(--gd)", minWidth: 44 }}>{item.time}</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</span>
+                          <button onClick={() => openEditMoment(item)} style={{ border: "none", background: "transparent", padding: 4, color: "var(--mt)", minHeight: 24, cursor: "pointer" }} aria-label="Editează moment">{ic.edit}</button>
+                          <button onClick={() => removeMoment(item.id)} style={{ border: "none", background: "transparent", padding: 4, color: "var(--mt)", minHeight: 24, cursor: "pointer" }} aria-label="Șterge moment">{ic.trash}</button>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                          <Badge c={catBadgeColor[item.category] || "gold"}>{catConfig[item.category]?.icon || "📌"} {catConfig[item.category]?.label || "Altele"}</Badge>
+                          {item.location && <span style={{ fontSize: 10, color: "var(--mt)" }}>📍 {item.location}</span>}
+                          {item.phone && <a href={`tel:${item.phone}`} style={{ fontSize: 10, color: "var(--gd)", fontWeight: 600, textDecoration: "none" }}>📞 {item.phone}</a>}
+                        </div>
+
+                        {item.notes && <div style={{ fontSize: 10, color: "var(--gr)", fontStyle: "italic", marginTop: 3 }}>{item.notes}</div>}
+
+                        {item.checklist?.length > 0 && (
+                          <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                            {item.checklist.map((cl) => (
+                              <label key={cl.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: cl.done ? "var(--mt)" : "var(--ink)", textDecoration: cl.done ? "line-through" : "none" }}>
+                                <input type="checkbox" checked={!!cl.done} onChange={() => toggleChecklistItem(item.id, cl.id)} style={{ accentColor: "var(--g)" }} />
+                                {cl.text}
+                              </label>
+                            ))}
                           </div>
-                        </Card>
-                      );
-                    })}
+                        )}
+                      </Card>
+                    ))}
                   </div>
                 )}
               </Card>
@@ -358,36 +344,35 @@ function Tools() {
               <Card style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                   <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)" }}>Contacte Ziua Nunții</div>
-                  <Badge c="blue">{dayContacts.length} contacte</Badge>
+                  <Badge c="blue">{allContacts.length} contacte</Badge>
                 </div>
-                {dayContacts.length === 0 ? (
+                {allContacts.length === 0 ? (
                   <div style={{ fontSize: 12, color: "var(--gr)", textAlign: "center", padding: "8px 0" }}>Nu există contacte contractate încă.</div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-                    {dayContacts.map((contact) => {
-                      const key = `${contact.category || ""}`.toLowerCase();
-                      const conf = key.includes("foto") ? catConfig.foto
-                        : key.includes("transport") ? catConfig.transport
-                        : key.includes("muz") ? catConfig.petrecere
-                        : key.includes("catering") ? catConfig.petrecere
-                        : key.includes("loca") ? catConfig.ceremonie
-                        : catConfig.altele;
-                      return (
-                        <div key={contact.id} style={{ border: "1px solid var(--bd)", borderRadius: 10, padding: 10, background: "var(--cr)" }}>
-                          <div style={{ fontSize: 18, marginBottom: 2 }}>{conf.icon}</div>
-                          <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 4 }}>{contact.category}</div>
-                          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 5, color: "var(--ink)" }}>{contact.name}</div>
-                          {contact.phone ? <a href={`tel:${contact.phone}`} style={{ display: "block", fontSize: 14, color: "var(--gd)", fontWeight: 600 }}>{contact.phone}</a> : <div style={{ fontSize: 11, color: "var(--mt)" }}>Telefon necompletat</div>}
-                          {contact.email ? <a href={`mailto:${contact.email}`} style={{ display: "block", marginTop: 4, fontSize: 11, color: "var(--gr)", wordBreak: "break-word" }}>{contact.email}</a> : null}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    {allContacts.map((c) => (
+                      <div key={`${c.source}-${c.id}-${c.name}`} style={{ padding: "10px", borderRadius: "var(--rs)", border: "1px solid var(--bd)", background: "var(--cd)" }}>
+                        <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 2 }}>
+                          {catConfig[c.cat]?.icon || "📦"} {c.cat}
                         </div>
-                      );
-                    })}
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", marginBottom: 4 }}>
+                          {c.name}
+                        </div>
+                        {c.phone ? (
+                          <a href={`tel:${c.phone}`} style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--gd)", textDecoration: "none" }}>
+                            📞 {c.phone}
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 11, color: "var(--ft)" }}>Telefon necompletat</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </Card>
 
               <Card style={{ marginBottom: 10 }}>
-                <Btn fullWidth onClick={() => openPDF(generateProgramPDF(state.wedding, sortedProgram, dayContacts))} style={{ minHeight: 44 }}>📄 Exportă Programul PDF</Btn>
+                <Btn fullWidth onClick={() => openPDF(generateProgramPDF(state.wedding, sortedProgram, allContacts))} style={{ minHeight: 44 }}>📄 Exportă Programul PDF</Btn>
               </Card>
             </div>
           </>
