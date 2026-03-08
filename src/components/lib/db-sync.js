@@ -1,6 +1,8 @@
 import { mkid, parseBudgetNotes } from "./utils";
 import { getSupabase } from "./supabase-client";
 
+// Necesită migrare Supabase: ALTER TABLE budget_items ADD COLUMN vendor_phone TEXT DEFAULT '';
+
 async function withRetry(fn, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -45,7 +47,7 @@ async function loadAllData(userId) {
     tables: (tables.data || []).map(item => ({ ...item })),
     budget: (budgetItems.data || []).map(item => {
       const parsed = parseBudgetNotes(item.notes || "");
-      return { ...item, cat: item.category, notes: parsed.cleanNotes, payments: parsed.payments || [] };
+      return { ...item, cat: item.category, vendorPhone: item.vendor_phone || '', notes: parsed.cleanNotes, payments: parsed.payments || [] };
     }),
     tasks: (tasks.data || []).map(item => ({ ...item, prio: item.priority })),
     vendors: (vendors.data || []),
@@ -172,6 +174,7 @@ const dbSync = {
       planned: item.planned || 0,
       spent: item.spent || 0,
       vendor: item.vendor || '',
+      vendor_phone: item.vendorPhone || '',
       status: item.status || 'unpaid',
       notes: item.notes || '',
     }).select().single());
@@ -185,6 +188,7 @@ const dbSync = {
     if (data.planned !== undefined) mapped.planned = data.planned;
     if (data.spent !== undefined) mapped.spent = data.spent;
     if (data.vendor !== undefined) mapped.vendor = data.vendor;
+    if (data.vendorPhone !== undefined) mapped.vendor_phone = data.vendorPhone;
     if (data.status !== undefined) mapped.status = data.status;
     if (data.notes !== undefined) mapped.notes = data.notes;
     if (Object.keys(mapped).length > 0) await withRetry(() => supabase.from('budget_items').update(mapped).eq('id', id));
@@ -320,6 +324,7 @@ const dbSync = {
       planned: item.planned || 0,
       spent: item.spent || 0,
       vendor: item.vendor || '',
+      vendor_phone: item.vendorPhone || '',
       status: item.status || 'unpaid',
       notes: item.notes || '',
     }));
