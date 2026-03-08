@@ -82,11 +82,34 @@ export default function WeddingPlanner() {
   useEffect(() => {
     const supabase = getSupabase();
     if (!supabase) { setAuthLoading(false); return; }
-    supabase.auth.getUser().then(({ data: { user } }) => { setUser(user); setAuthLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      const authUser = session?.user || null;
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        setUser(authUser);
+    const applySessionUser = async (session) => {
+      const maybeUser = session?.user || null;
+      if (!maybeUser) {
+        setUser(null);
+        return;
+      }
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user) {
+        try { await supabase.auth.signOut(); } catch {}
+        setUser(null);
+        return;
+      }
+      setUser(data.user);
+    };
+
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error) {
+        try { await supabase.auth.signOut(); } catch {}
+        setUser(null);
+        setAuthLoading(false);
+        return;
+      }
+      await applySessionUser(session);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
+        await applySessionUser(session);
       }
       if (event === "SIGNED_OUT") {
         setReducerDispatch({ type: "SET", p: { ...EMPTY_STATE, onboarded: false } });
