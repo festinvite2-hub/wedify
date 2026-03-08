@@ -84,17 +84,7 @@ export default function WeddingPlanner() {
     if (!supabase) { setAuthLoading(false); return; }
     const applySessionUser = async (session) => {
       const maybeUser = session?.user || null;
-      if (!maybeUser) {
-        setUser(null);
-        return;
-      }
-      const { data, error } = await supabase.auth.getUser();
-      if (error || !data?.user) {
-        try { await supabase.auth.signOut(); } catch {}
-        setUser(null);
-        return;
-      }
-      setUser(data.user);
+      setUser(maybeUser);
     };
 
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
