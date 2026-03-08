@@ -261,9 +261,8 @@ function Auth(){
     </div>
     <div style={{fontSize:13,color:"rgba(255,255,255,.6)",lineHeight:1.8}}>
       <p style={{marginBottom:14}}>Wedify e un proiect gratuit și open-source. Ca să funcționeze, trebuie să stocăm câteva lucruri:</p>
-      <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>📋 Ce stocăm:</strong><br/>Numele tău, emailul, și tot ce introduci tu în aplicație — invitați, mese, buget, task-uri, programul nunții.</p>
+      <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>📋 Ce stocăm:</strong><br/>Numele tău, emailul, și tot ce introduci tu în aplicație — invitați, mese, buget, task-uri, programul nunții, etc.</p>
       <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>🔒 Cine are acces:</strong><br/>Doar tu. Fiecare cont vede doar datele lui. Parola ta e criptată, nici noi nu o putem vedea.</p>
-      <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>🌍 Unde sunt:</strong><br/>Pe servere în UE (prin Supabase). Nu trimitem datele în altă parte.</p>
       <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>🚫 Ce NU facem:</strong><br/>Nu vindem date. Nu facem tracking. Nu trimitem spam. Nu folosim cookie-uri de marketing.</p>
       <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>🗑️ Vrei să pleci?</strong><br/>Din Setări poți șterge contul oricând. Totul dispare definitiv — nu păstrăm nimic.</p>
       <p style={{fontSize:11,color:"rgba(255,255,255,.35)"}}>Conform GDPR (Regulamentul UE 2016/679), ai dreptul să-ți accesezi, corectezi sau ștergi datele oricând.</p>
