@@ -94,7 +94,7 @@ export default function WeddingPlanner() {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const authUser = session?.user || null;
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") {
         setUser(authUser);
       }
       if (event === "SIGNED_OUT") {
