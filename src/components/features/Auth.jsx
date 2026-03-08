@@ -14,6 +14,8 @@ function Auth(){
   const[newPass2,setNewPass2]=useState("");
   const[loading,setLoading]=useState(false);
   const[ready,setReady]=useState(false);
+  const[acceptStorage,setAcceptStorage]=useState(false);
+  const[showInfo,setShowInfo]=useState(false);
   useEffect(()=>{setTimeout(()=>setReady(true),100)},[]);
 
   const doLogin=async()=>{
@@ -40,12 +42,13 @@ function Auth(){
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))return setErr("Email invalid");
     if(pass.length<6)return setErr("Parola: minim 6 caractere");
     if(pass!==pass2)return setErr("Parolele nu coincid");
+    if(!acceptStorage)return setErr("Trebuie să fii de acord cu stocarea datelor.");
     setLoading(true);
     const sb=getSupabase();
     if(!sb){setLoading(false);return setErr("Eroare configurare server.");}
     const{error}=await sb.auth.signUp({
       email:e,password:pass,
-      options:{data:{name:n},emailRedirectTo:`${window.location.origin}/auth/callback?type=signup`}
+      options:{data:{name:n,data_consent:true,consent_date:new Date().toISOString()},emailRedirectTo:`${window.location.origin}/auth/callback?type=signup`}
     });
     setLoading(false);
     if(error){
@@ -145,19 +148,38 @@ function Auth(){
             <button onClick={doLogin} disabled={loading} style={mBtn}>{loading&&spin}Intră</button>
             <div style={{display:"flex",justifyContent:"space-between",marginTop:14}}>
               <button onClick={()=>{setMode("forgot");setErr("")}} style={{fontSize:12,color:"rgba(255,255,255,.65)"}}>Am uitat parola</button>
-              <button onClick={()=>{setMode("register");setErr("");setPass("");setPass2("")}} style={{fontSize:12,color:"var(--gl)",opacity:.9,fontWeight:600}}>Creează cont →</button>
+              <button onClick={()=>{setMode("register");setErr("");setPass("");setPass2("");setAcceptStorage(false);}} style={{fontSize:12,color:"var(--gl)",opacity:.9,fontWeight:600}}>Creează cont →</button>
             </div>
           </>}
 
           {mode==="register"&&<>
-            <button onClick={()=>{setMode("login");setErr("")}} style={{color:"var(--gl)",fontSize:12,marginBottom:12,opacity:.7}}>← Conectare</button>
+            <button onClick={()=>{setMode("login");setErr("");setAcceptStorage(false);}} style={{color:"var(--gl)",fontSize:12,marginBottom:12,opacity:.7}}>← Conectare</button>
             <h2 style={{fontFamily:"var(--fd)",fontSize:20,color:"#fff",textAlign:"center",marginBottom:16}}>Creare cont</h2>
             <input value={name} onChange={e=>setName(e.target.value)} placeholder="Numele tău complet" type="text" style={inp} autoComplete="name"/>
             <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" style={inp} autoComplete="email"/>
             <input value={pass} onChange={e=>setPass(e.target.value)} placeholder="Parolă (min 6 caractere)" type="password" style={inp} autoComplete="new-password"/>
             <input value={pass2} onChange={e=>setPass2(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doRegister()} placeholder="Confirmă parola" type="password" style={inp} autoComplete="new-password"/>
+            <label style={{ display:"flex", alignItems:"flex-start", gap:8, marginTop:4, marginBottom:12, cursor:"pointer" }}>
+              <input
+                type="checkbox"
+                checked={acceptStorage}
+                onChange={e=>setAcceptStorage(e.target.checked)}
+                style={{ marginTop:3, accentColor:"var(--g)", flexShrink:0 }}
+              />
+              <span style={{ fontSize:12, color:"rgba(255,255,255,.5)", lineHeight:1.5 }}>
+                Sunt de acord ca datele mele să fie stocate pentru funcționarea aplicației.
+                Poți șterge totul oricând.{" "}
+                <button
+                  type="button"
+                  onClick={(e)=>{e.preventDefault();setShowInfo(true)}}
+                  style={{ color:"var(--gl)", textDecoration:"underline", fontSize:12 }}
+                >
+                  Află mai multe
+                </button>
+              </span>
+            </label>
             {err&&<div style={{padding:"8px 12px",borderRadius:10,marginBottom:10,background:"rgba(184,92,92,.12)",color:"#E88",fontSize:12,animation:"shake .3s"}}>{err}</div>}
-            <button onClick={doRegister} disabled={loading} style={mBtn}>{loading&&spin}Creează contul</button>
+            <button onClick={doRegister} disabled={loading||!acceptStorage} style={{...mBtn,opacity:!acceptStorage?0.4:1}}>{loading&&spin}Creează contul</button>
           </>}
 
           {mode==="confirm"&&<>
@@ -230,6 +252,25 @@ function Auth(){
         </div>
         <div style={{padding:"12px 4px 4px",textAlign:"center",fontSize:10,color:"rgba(255,255,255,.18)"}}>Wedify · Wedding Organizer</div>
       </div>
+            {showInfo&&<div style={{position:"fixed",inset:0,zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div onClick={()=>setShowInfo(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,.6)"}}/>
+  <div style={{position:"relative",width:"100%",maxWidth:440,maxHeight:"80vh",overflow:"auto",background:"#2a2218",borderRadius:16,border:"1px solid rgba(255,255,255,.1)",padding:"24px 20px"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+      <h3 style={{fontFamily:"var(--fd)",fontSize:18,color:"#fff"}}>Despre datele tale</h3>
+      <button onClick={()=>setShowInfo(false)} style={{color:"rgba(255,255,255,.5)",fontSize:20}}>✕</button>
+    </div>
+    <div style={{fontSize:13,color:"rgba(255,255,255,.6)",lineHeight:1.8}}>
+      <p style={{marginBottom:14}}>Wedify e un proiect gratuit și open-source. Ca să funcționeze, trebuie să stocăm câteva lucruri:</p>
+      <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>📋 Ce stocăm:</strong><br/>Numele tău, emailul, și tot ce introduci tu în aplicație — invitați, mese, buget, task-uri, programul nunții.</p>
+      <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>🔒 Cine are acces:</strong><br/>Doar tu. Fiecare cont vede doar datele lui. Parola ta e criptată, nici noi nu o putem vedea.</p>
+      <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>🌍 Unde sunt:</strong><br/>Pe servere în UE (prin Supabase). Nu trimitem datele în altă parte.</p>
+      <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>🚫 Ce NU facem:</strong><br/>Nu vindem date. Nu facem tracking. Nu trimitem spam. Nu folosim cookie-uri de marketing.</p>
+      <p style={{marginBottom:14}}><strong style={{color:"var(--gl)"}}>🗑️ Vrei să pleci?</strong><br/>Din Setări poți șterge contul oricând. Totul dispare definitiv — nu păstrăm nimic.</p>
+      <p style={{fontSize:11,color:"rgba(255,255,255,.35)"}}>Conform GDPR (Regulamentul UE 2016/679), ai dreptul să-ți accesezi, corectezi sau ștergi datele oricând.</p>
+    </div>
+    <button onClick={()=>setShowInfo(false)} style={{width:"100%",marginTop:16,padding:12,borderRadius:12,background:"linear-gradient(135deg,var(--g),var(--gd))",color:"#fff",fontSize:14,fontWeight:600}}>Am înțeles 👍</button>
+  </div>
+</div>}
     </div>
   );
 }
