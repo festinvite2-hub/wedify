@@ -62,6 +62,9 @@ function Budget() {
         <Card key={b.id} onClick={() => { setEditing(b); setShowForm(true) }} style={{ marginBottom: 7, cursor: "pointer", padding: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: cl[i % cl.length] }} /><span style={{ flex: 1, fontWeight: 600, fontSize: 13 }}>{b.cat}</span><Badge c={b.status === "paid" ? "green" : b.status === "partial" ? "blue" : "gray"}>{b.status === "paid" ? "Plătit" : b.status === "partial" ? "Parțial" : "Neplătit"}</Badge></div>
           {b.vendor && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3 }}>📍 {b.vendor}</div>}
+          {b.vendorPhone && <div style={{ fontSize: 10, color: "var(--gd)", marginBottom: 3 }}>
+            📞 <a href={`tel:${b.vendorPhone}`} style={{ color: "var(--gd)", textDecoration: "none", fontWeight: 600 }}>{b.vendorPhone}</a>
+          </div>}
           {b.notes && <div style={{ fontSize: 10, color: "var(--mt)", marginBottom: 3, fontStyle: "italic" }}>📝 {b.notes}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}><span>{fmtC(b.spent)}</span><span style={{ color: "var(--mt)" }}>{fmtC(b.planned)}</span></div>
           <div style={{ height: 4, background: "var(--cr2)", borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", borderRadius: 2, width: `${Math.min(payload, 100)}%`, background: payload > 100 ? "var(--er)" : "var(--g)", transition: "width .5s" }} /></div>
@@ -78,7 +81,9 @@ function Budget() {
 
 function BudgetFormInner({ item, onClose }) {
   const { dispatch } = useData();
-  const [formData, setFormData] = useState(item ? { ...item, payments: item.payments || [] } : { cat: "", planned: 0, spent: 0, vendor: "", status: "unpaid", notes: "", payments: [] });
+  const [formData, setFormData] = useState(item
+    ? { ...item, vendorPhone: item.vendorPhone || item.vendor_phone || "", payments: item.payments || [] }
+    : { cat: "", planned: 0, spent: 0, vendor: "", vendorPhone: "", status: "unpaid", notes: "", payments: [] });
   const [showConfirm, setShowConfirm] = useState(false);
   const [pAmt, setPAmt] = useState(0);
   const [pDate, setPDate] = useState(new Date().toISOString().slice(0, 10));
@@ -128,6 +133,7 @@ function BudgetFormInner({ item, onClose }) {
     </div>
 
     <Fld label="Furnizor" value={formData.vendor} onChange={updater("vendor")} placeholder="Nume furnizor..." />
+    <Fld label="Telefon furnizor" value={formData.vendorPhone} onChange={updater("vendorPhone")} placeholder="+40 7XX XXX XXX" />
 
     <Fld label="Status" value={formData.status} onChange={updater("status")} options={[{ value: "unpaid", label: "Neplătit" }, { value: "partial", label: "Parțial" }, { value: "paid", label: "Plătit" }]} />
     <Fld label="Note" value={formData.notes} onChange={updater("notes")} type="textarea" placeholder="Plata în 2 rate, factură trimisă..." />
