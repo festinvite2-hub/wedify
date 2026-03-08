@@ -6,10 +6,10 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
   const type = searchParams.get('type');
   const token_hash = searchParams.get('token_hash');
-  const normalizedType = type === 'signup' ? 'email' : type;
+  const redirectType = type === 'signup' ? 'email' : type;
 
   const redirectAfterAuth = () => {
-    if (normalizedType === 'recovery') {
+    if (redirectType === 'recovery') {
       return NextResponse.redirect(new URL('/auth/reset-password', request.url));
     }
     return NextResponse.redirect(new URL('/auth/confirmed', request.url));
@@ -22,12 +22,12 @@ export async function GET(request: Request) {
     if (!error) return redirectAfterAuth();
   }
 
-  if (token_hash && normalizedType) {
+  if (token_hash && type) {
     type TokenHashType = Extract<Parameters<typeof supabase.auth.verifyOtp>[0], { token_hash: string }>['type'];
-    const tokenHashTypes: TokenHashType[] = ['email', 'recovery', 'invite', 'email_change', 'magiclink'];
+    const tokenHashTypes: TokenHashType[] = ['signup', 'email', 'recovery', 'invite', 'email_change', 'magiclink'];
 
-    if (tokenHashTypes.includes(normalizedType as TokenHashType)) {
-      const { error } = await supabase.auth.verifyOtp({ token_hash, type: normalizedType as TokenHashType });
+    if (tokenHashTypes.includes(type as TokenHashType)) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash, type: type as TokenHashType });
       if (!error) return redirectAfterAuth();
     }
   }
