@@ -82,7 +82,16 @@ export default function WeddingPlanner() {
   useEffect(() => {
     const supabase = getSupabase();
     if (!supabase) { setAuthLoading(false); return; }
-    supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user || null); setAuthLoading(false); });
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error) {
+        try { await supabase.auth.signOut(); } catch {}
+        setUser(null);
+        setAuthLoading(false);
+        return;
+      }
+      setUser(session?.user || null);
+      setAuthLoading(false);
+    });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const authUser = session?.user || null;
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
