@@ -76,6 +76,32 @@ function reducer(state, action) {
     case "ADD_VENDOR": return { ...state, vendors: [...state.vendors, payload], activity: log(`Furnizor: ${payload.name} adăugat`) };
     case "UPD_VENDOR": return { ...state, vendors: state.vendors.map(vendor => vendor.id === payload.id ? { ...vendor, ...payload } : vendor) };
     case "DEL_VENDOR": return { ...state, vendors: state.vendors.filter(vendor => vendor.id !== payload), activity: log(`Furnizor șters`) };
+    case "REPLACE_ID": {
+      const { collection, oldId, newId } = payload;
+      if (collection === "guests") {
+        return {
+          ...state,
+          guests: state.guests.map(guest => guest.id === oldId ? { ...guest, id: newId } : guest),
+        };
+      }
+      if (collection === "tables") {
+        return {
+          ...state,
+          tables: state.tables.map(table => table.id === oldId ? { ...table, id: newId } : table),
+          guests: state.guests.map(guest => guest.tid === oldId ? { ...guest, tid: newId } : guest),
+        };
+      }
+      if (collection === "budget") {
+        return { ...state, budget: state.budget.map(item => item.id === oldId ? { ...item, id: newId } : item) };
+      }
+      if (collection === "tasks") {
+        return { ...state, tasks: state.tasks.map(task => task.id === oldId ? { ...task, id: newId } : task) };
+      }
+      if (collection === "vendors") {
+        return { ...state, vendors: state.vendors.map(vendor => vendor.id === oldId ? { ...vendor, id: newId } : vendor) };
+      }
+      return state;
+    }
     case "IMPORT_GUESTS": return { ...state, guests: [...state.guests, ...payload], activity: log(`${payload.length} invitați importați`) };
     case "SET_GUESTS_IMPORTED": return { ...state, guests: [...state.guests.filter(guest => !payload.some(newGuest => newGuest.name === guest.name)), ...payload] };
     default: return state;

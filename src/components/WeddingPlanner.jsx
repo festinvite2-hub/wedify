@@ -65,6 +65,7 @@ export default function WeddingPlanner() {
 
   const loadUserData = useCallback(async () => {
     if (!user || syncInProgressRef.current) return;
+    if (weddingId && stateRef.current.onboarded) return;
     setDataLoading(true);
     const fresh = await loadAllData(user.id);
     if (fresh) {
@@ -76,7 +77,7 @@ export default function WeddingPlanner() {
       setReducerDispatch({ type: "SET", p: { ...EMPTY_STATE, onboarded: false } });
     }
     setDataLoading(false);
-  }, [user]);
+  }, [user, weddingId]);
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -84,7 +85,9 @@ export default function WeddingPlanner() {
     supabase.auth.getUser().then(({ data: { user } }) => { setUser(user); setAuthLoading(false); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const authUser = session?.user || null;
-      setUser(authUser);
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        setUser(authUser);
+      }
       if (event === "SIGNED_OUT") {
         setReducerDispatch({ type: "SET", p: { ...EMPTY_STATE, onboarded: false } });
         setWeddingId(null);
@@ -141,19 +144,49 @@ export default function WeddingPlanner() {
           case "SET":
             if (currentWeddingId) await dbSync.updateWedding(currentWeddingId, payload.wedding || payload);
             break;
-          case "ADD_GUEST": await dbSync.addGuest(currentWeddingId, payload); break;
+          case "ADD_GUEST": {
+            const dbGuest = await dbSync.addGuest(currentWeddingId, payload);
+            if (dbGuest?.id && dbGuest.id !== payload.id) {
+              setReducerDispatch({ type: "REPLACE_ID", p: { collection: "guests", oldId: payload.id, newId: dbGuest.id } });
+            }
+            break;
+          }
           case "UPD_GUEST": await dbSync.updateGuest(payload.id, payload); break;
           case "DEL_GUEST": await dbSync.deleteGuest(payload); break;
-          case "ADD_TABLE": await dbSync.addTable(currentWeddingId, payload); break;
+          case "ADD_TABLE": {
+            const dbTable = await dbSync.addTable(currentWeddingId, payload);
+            if (dbTable?.id && dbTable.id !== payload.id) {
+              setReducerDispatch({ type: "REPLACE_ID", p: { collection: "tables", oldId: payload.id, newId: dbTable.id } });
+            }
+            break;
+          }
           case "UPD_TABLE": await dbSync.updateTable(payload.id, payload); break;
           case "DEL_TABLE": await dbSync.deleteTable(payload); break;
-          case "ADD_BUDGET": await dbSync.addBudgetItem(currentWeddingId, { ...payload, notes: serializeBudgetNotes(payload.notes, payload.payments) }); break;
+          case "ADD_BUDGET": {
+            const dbBudget = await dbSync.addBudgetItem(currentWeddingId, { ...payload, notes: serializeBudgetNotes(payload.notes, payload.payments) });
+            if (dbBudget?.id && dbBudget.id !== payload.id) {
+              setReducerDispatch({ type: "REPLACE_ID", p: { collection: "budget", oldId: payload.id, newId: dbBudget.id } });
+            }
+            break;
+          }
           case "UPD_BUDGET": await dbSync.updateBudgetItem(payload.id, { ...payload, notes: serializeBudgetNotes(payload.notes, payload.payments) }); break;
           case "DEL_BUDGET": await dbSync.deleteBudgetItem(payload); break;
-          case "ADD_TASK": await dbSync.addTask(currentWeddingId, payload); break;
+          case "ADD_TASK": {
+            const dbTask = await dbSync.addTask(currentWeddingId, payload);
+            if (dbTask?.id && dbTask.id !== payload.id) {
+              setReducerDispatch({ type: "REPLACE_ID", p: { collection: "tasks", oldId: payload.id, newId: dbTask.id } });
+            }
+            break;
+          }
           case "UPD_TASK": await dbSync.updateTask(payload.id, payload); break;
           case "DEL_TASK": await dbSync.deleteTask(payload); break;
-          case "ADD_VENDOR": await dbSync.addVendor(currentWeddingId, payload); break;
+          case "ADD_VENDOR": {
+            const dbVendor = await dbSync.addVendor(currentWeddingId, payload);
+            if (dbVendor?.id && dbVendor.id !== payload.id) {
+              setReducerDispatch({ type: "REPLACE_ID", p: { collection: "vendors", oldId: payload.id, newId: dbVendor.id } });
+            }
+            break;
+          }
           case "UPD_VENDOR": await dbSync.updateVendor(payload.id, payload); break;
           case "DEL_VENDOR": await dbSync.deleteVendor(payload); break;
           case "SEAT":
