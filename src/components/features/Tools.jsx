@@ -12,7 +12,7 @@ function Tools() {
         <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".1em", color: "var(--mt)", marginBottom: 8 }}>Export</div>
         <div style={{ fontSize: 12, color: "var(--gr)", marginBottom: 10 }}>Descarcă rapid listele pentru invitați și planul de mese.</div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn variant="secondary" onClick={() => openPDF(generateGuestsPDF(state.guests, state.wedding))} style={{ flex: 1, fontSize: 11, padding: "9px 12px" }}>📄 Lista invitați</Btn>
+          <Btn variant="secondary" onClick={() => openPDF(generateGuestsPDF(state.guests, state.wedding, state.tables))} style={{ flex: 1, fontSize: 11, padding: "9px 12px" }}>📄 Lista invitați</Btn>
           <Btn variant="secondary" onClick={() => openPDF(generateTablesPDF(state.tables, state.guests, state.wedding))} style={{ flex: 1, fontSize: 11, padding: "9px 12px" }}>📄 Plan mese</Btn>
         </div>
       </Card>
