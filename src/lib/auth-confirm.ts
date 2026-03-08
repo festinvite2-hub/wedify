@@ -41,10 +41,14 @@ export async function handleAuthConfirmation(request: Request) {
     }
   }
 
-  if (tokenHash && type) {
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
-    if (!error) {
-      return NextResponse.redirect(new URL(type === 'recovery' ? '/auth/reset-password' : next, request.url));
+  if (tokenHash) {
+    const candidateTypes: SupportedOtpType[] = type ? [type] : ['email', 'recovery', 'magiclink'];
+
+    for (const candidateType of candidateTypes) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: candidateType });
+      if (!error) {
+        return NextResponse.redirect(new URL(candidateType === 'recovery' ? '/auth/reset-password' : next, request.url));
+      }
     }
   }
 
