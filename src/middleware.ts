@@ -4,18 +4,26 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
 
-  // Intercepteaza recovery code pe pagina principala (PKCE)
-  if (pathname === '/' && searchParams.has('code')) {
-    const code = searchParams.get('code')
+  // Intercepteaza parametrii de auth pe pagina principala (PKCE / token_hash)
+  if (pathname === '/' && (searchParams.has('code') || searchParams.has('token_hash'))) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/callback'
+
+    const code = searchParams.get('code')
     if (code) {
       url.searchParams.set('code', code)
     }
+
+    const tokenHash = searchParams.get('token_hash')
+    if (tokenHash) {
+      url.searchParams.set('token_hash', tokenHash)
+    }
+
     if (searchParams.has('type')) {
       const type = searchParams.get('type')
       if (type) url.searchParams.set('type', type)
     }
+
     return NextResponse.redirect(url)
   }
 
