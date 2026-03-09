@@ -17,7 +17,17 @@ async function withRetry(fn, retries = 3, delay = 1000) {
 async function loadAllData(userId) {
   const supabase = getSupabase();
   if (!supabase) return null;
-  const { data: wedding } = await supabase.from('weddings').select('*').eq('user_id', userId).single();
+  const { data: wedding, error: weddingError } = await supabase
+    .from('weddings')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (weddingError) {
+    console.warn('loadAllData wedding lookup warning:', weddingError.message);
+    return null;
+  }
   if (!wedding) return null;
   const [guests, tables, budgetItems, tasks, vendors, guestGroups] = await Promise.all([
     supabase.from('guests').select('*').eq('wedding_id', wedding.id).order('created_at'),
